@@ -1,0 +1,86 @@
+import React from "react";
+import { FaUser } from "react-icons/fa6";
+import {
+  HiOutlineCheckCircle,
+  HiOutlineXCircle,
+  HiOutlineArrowTrendingUp,
+} from "react-icons/hi2";
+import { LuMonitor } from "react-icons/lu";
+
+const StatCard = ({
+  title,
+  value,
+  unit,
+  change,
+  icon: Icon,
+  iconBg,
+  iconColor,
+  subText,
+}: any) => (
+  <div className="bg-white border border-gray-100 rounded-lg p-4 shadow-sm flex flex-col items-center justify-between relative overflow-hidden">
+    {/* هدر: عنوان و آیکون - ساختار دقیقاً مطابق کد خودت */}
+    <div className="w-full flex justify-between items-start mb-2">
+      <div className={`p-3 rounded-full ${iconBg} ${iconColor}`}>
+        <Icon className="w-6 h-6" />
+      </div>
+      <div className="flex-1 text-center">
+        <p className="text-gray-700 text-sm font-bold mb-2">{title}</p>
+        <h3 className="text-[#1e293b] text-xl font-bold dir-ltr tracking-tight">
+          {value}
+        </h3>
+        <p className="text-gray-400 text-[10px] mt-1">{unit}</p>
+      </div>
+    </div>
+  </div>
+);
+
+export default function BranchReportsCardsSection() {
+  const stats = [
+    {
+      title: "کل دستگاه‌ها",
+      value: "۱۲۰",
+      unit: "دستگاه",
+      change: "۲٪",
+      icon: LuMonitor,
+      iconBg: "bg-blue-50",
+      iconColor: "text-blue-600",
+    },
+    {
+      title: "دستگاه‌های روشن",
+      value: "۸۵",
+      unit: "آنلاین",
+      change: "۵٪",
+      icon: HiOutlineCheckCircle,
+      iconBg: "bg-green-50",
+      iconColor: "text-green-600",
+    },
+    {
+      title: "دستگاه‌های خاموش",
+      value: "۲۰",
+      unit: "آفلاین",
+      change: "۱٪",
+      icon: HiOutlineXCircle,
+      iconBg: "bg-gray-100",
+      iconColor: "text-gray-500",
+    },
+    {
+      title: "دستگاه‌های افلاین",
+      value: "۱۵",
+      unit: "بدون شبکه",
+      change: "۸٪",
+      icon: FaUser,
+      iconBg: "bg-orange-50",
+      iconColor: "text-orange-600",
+    },
+  ];
+
+  return (
+    <div className=" grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {stats.map((stat, index) => (
+        <div key={index}>
+          <StatCard {...stat} />
+        </div>
+      ))}
+    </div>
+  );
+}
