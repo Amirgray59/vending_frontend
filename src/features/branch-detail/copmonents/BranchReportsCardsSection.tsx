@@ -1,4 +1,7 @@
 import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useParams } from "next/navigation";
+import { getAllDevicesListApi } from "@/shared/api/device";
 import { FaUser } from "react-icons/fa6";
 import {
   HiOutlineCheckCircle,
@@ -35,10 +38,24 @@ const StatCard = ({
 );
 
 export default function BranchReportsCardsSection() {
+  const { branchId } = useParams<{ branchId: string }>();
+  const { data: devicesPage, isLoading } = useQuery({
+    queryKey: ["location-device-stats", branchId],
+    queryFn: () => getAllDevicesListApi({ location_id: branchId }),
+    enabled: !!branchId,
+  });
+  const devices = devicesPage?.items ?? [];
+  const deviceStats = {
+    total: devicesPage?.total ?? 0,
+    online: devices.filter((device: any) => device.status === "online").length,
+    offline: devices.filter((device: any) => device.status === "offline").length,
+    pending: devices.filter((device: any) => device.status === "pending").length,
+  };
+
   const stats = [
     {
       title: "کل دستگاه‌ها",
-      value: "۱۲۰",
+      value: isLoading ? "…" : deviceStats.total.toLocaleString("fa-IR"),
       unit: "دستگاه",
       change: "۲٪",
       icon: LuMonitor,
@@ -47,7 +64,7 @@ export default function BranchReportsCardsSection() {
     },
     {
       title: "دستگاه‌های روشن",
-      value: "۸۵",
+      value: isLoading ? "…" : deviceStats.online.toLocaleString("fa-IR"),
       unit: "آنلاین",
       change: "۵٪",
       icon: HiOutlineCheckCircle,
@@ -56,7 +73,7 @@ export default function BranchReportsCardsSection() {
     },
     {
       title: "دستگاه‌های خاموش",
-      value: "۲۰",
+      value: isLoading ? "…" : deviceStats.offline.toLocaleString("fa-IR"),
       unit: "آفلاین",
       change: "۱٪",
       icon: HiOutlineXCircle,
@@ -65,7 +82,7 @@ export default function BranchReportsCardsSection() {
     },
     {
       title: "دستگاه‌های افلاین",
-      value: "۱۵",
+      value: isLoading ? "…" : deviceStats.pending.toLocaleString("fa-IR"),
       unit: "بدون شبکه",
       change: "۸٪",
       icon: FaUser,

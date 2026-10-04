@@ -2,11 +2,12 @@
 
 import FilterContainer from "@/components/shared/FilterContainer";
 import PageTitle from "@/components/shared/PageTitle";
+import SelectInput from "@/components/form/SelectInput";
 import AlertList from "@/features/alerts/components/AlertList";
 import AlertStats from "@/features/alerts/components/AlertsStatus";
-import RecentReports from "@/features/alerts/components/RecentReports";
 import useGetAlertList from "@/features/alerts/hooks/useGetAlertList";
-import { useState, useMemo } from "react";
+import UseGetSections from "@/shared/hooks/useGetSections";
+import { useEffect, useMemo, useState } from "react";
 
 interface ChangeHandlerEvent {
   target: {
@@ -15,95 +16,137 @@ interface ChangeHandlerEvent {
   };
 }
 
-// اصلاح مقادیر مطابق با دیتای سرور
 const optionsMap = {
-  
   alertType: {
     title: "نوع هشدار",
     options: [
       { id: "all", name: "همه انواع" },
+      { id: "low_quantity", name: "موجودی کم" },
+      { id: "offline", name: "قطع ارتباط" },
+      { id: "movement", name: "جابجایی دستگاه" },
+      { id: "door_open", name: "باز بودن در" },
+      { id: "long_door_open", name: "باز ماندن طولانی در" },
       { id: "hardware_error", name: "خطای سخت‌افزاری" },
-      { id: "network_error", name: "خطای شبکه" },
+      { id: "unclaimed_device", name: "دستگاه ثبت‌نشده" },
+      { id: "pos_rate_limit", name: "محدودیت درخواست پرداخت" },
     ],
   },
   status: {
-    title: "وضعیت",
+    title: "وضعیت حل",
     options: [
-      { id: "all", name: "همه وضعیت ها" },
-      { id: "resolved", name: "حل شده" },
-      { id: "unresolved", name: "حل نشده" },
+      { id: "all", name: "همه وضعیت‌ها" },
+      { id: "resolved", name: "حل‌شده" },
+      { id: "unresolved", name: "حل‌نشده" },
     ],
   },
   intensity: {
     title: "شدت",
     options: [
-      { id: "all", name: "همه شدت ها" },
+      { id: "all", name: "همه شدت‌ها" },
       { id: "critical", name: "بحرانی" },
       { id: "warning", name: "بالا" },
       { id: "info", name: "متوسط" },
     ],
   },
+  acknowledged: {
+    title: "تأیید",
+    options: [
+      { id: "all", name: "همه" },
+      { id: "acknowledged", name: "تأییدشده" },
+      { id: "unacknowledged", name: "تأییدنشده" },
+    ],
+  },
+  sort: {
+    title: "مرتب‌سازی",
+    options: [
+      { id: "recent", name: "ترتیب پیش‌فرض" },
+      { id: "device", name: "بیشترین هشدار برای هر دستگاه" },
+    ],
+  },
+};
+
+const initialFilters = {
+  places: "all",
+  sections: "all",
+  alertType: "all",
+  status: "all",
+  intensity: "all",
+  acknowledged: "all",
+  sort: "recent",
+  fullName: "",
+  city: "",
 };
 
 export default function Page() {
-  const [filterValues, setFilterValues] = useState({
-    places: "all",
-    alertType: "all",
-    status: "all",
-    intensity: "all",
+  const [filterValues, setFilterValues] = useState(initialFilters);
+  const [debouncedTextFilters, setDebouncedTextFilters] = useState({
+    fullName: "",
+    city: "",
   });
 
-  const { alertList, isGettingAlertsList } = useGetAlertList();  
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedTextFilters({
+        fullName: filterValues.fullName.trim(),
+        city: filterValues.city.trim(),
+      });
+    }, 350);
 
-  const handleInputChange = (e: ChangeHandlerEvent) => {
-    setFilterValues((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
+    return () => window.clearTimeout(timeoutId);
+  }, [filterValues.fullName, filterValues.city]);
+
+  const { sections } = UseGetSections(filterValues.places);
+
+  const alertQuery = useMemo(
+    () => ({
+      location_id: filterValues.places === "all" ? undefined : filterValues.places,
+      full_name: debouncedTextFilters.fullName || undefined,
+      city: debouncedTextFilters.city || undefined,
+      type: filterValues.alertType === "all" ? undefined : filterValues.alertType,
+      severity: filterValues.intensity === "all" ? undefined : filterValues.intensity,
+      resolved:
+        filterValues.status === "all" ? undefined : filterValues.status === "resolved",
+      acknowledged:
+        filterValues.acknowledged === "all"
+          ? undefined
+          : filterValues.acknowledged === "acknowledged",
+      sort: filterValues.sort === "device" ? "device" : undefined,
+    }),
+    [filterValues, debouncedTextFilters],
+  );
+
+  const { alertList, isGettingAlertsList } = useGetAlertList(alertQuery);
+
+  const handleInputChange = (event: ChangeHandlerEvent) => {
+    setFilterValues((previous) => ({
+      ...previous,
+      [event.target.name]: event.target.value,
+      ...(event.target.name === "places" ? { sections: "all" } : {}),
     }));
   };
 
-  const handleClearFilters = () => {
-    setFilterValues({
-      places: "all",
-      alertType: "all",
-      status: "all",
-      intensity: "all",
-    });
-  };
+  const handleClearFilters = () => setFilterValues(initialFilters);
 
   const filteredAlerts = useMemo(() => {
-    const items = alertList?.items || [];
+    const items = alertList?.items ?? [];
+    return items.filter(
+      (alert: any) =>
+        filterValues.sections === "all" || alert.section_id === filterValues.sections,
+    );
+  }, [alertList, filterValues.sections]);
 
-    return items.filter((alert: any) => {
-      const matchesIntensity =
-        filterValues.intensity === "all" ||
-        alert.severity === filterValues.intensity;
-
-      const matchesType =
-        filterValues.alertType === "all" ||
-        alert.type === filterValues.alertType;
-
-      let matchesStatus = true;
-      if (filterValues.status !== "all") {
-        if (filterValues.status === "resolved")
-          matchesStatus = alert.resolved === true;
-        else if (filterValues.status === "unresolved")
-          matchesStatus = alert.resolved === false;
-      }
-
-      const matchesPlace =
-        filterValues.places === "all" || alert.location_id === filterValues.places;
-
-      return matchesIntensity && matchesType && matchesStatus && matchesPlace;
-    });
-  }, [alertList, filterValues]);
+  const sectionOptions = [
+    { id: "all", name: "همه بخش‌ها" },
+    ...(sections?.items ?? []).map((section: any) => ({
+      id: section.id,
+      name: section.name,
+    })),
+  ];
 
   return (
     <section className="p-4">
-      {/* Page Title */}
-      <PageTitle title="هشدار ها" description="داشبورد / هشدارها" />
+      <PageTitle title="هشدارها" description="داشبورد / هشدارها" />
 
-      {/* Filter Container */}
       <FilterContainer
         filterValues={filterValues}
         handleInputChange={handleInputChange}
@@ -113,22 +156,46 @@ export default function Page() {
         onClearFilters={handleClearFilters}
       />
 
-      {/* Alert Status Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 pb-4">
+        <SelectInput
+          name="sections"
+          title="بخش"
+          options={sectionOptions}
+          filterValues={filterValues}
+          handleChange={handleInputChange}
+        />
+        <label className="flex flex-col gap-2 text-sm text-gray-800">
+          نام دستگاه
+          <input
+            name="fullName"
+            value={filterValues.fullName}
+            onChange={(event) => handleInputChange(event)}
+            placeholder="جست‌وجو بر اساس نام دستگاه"
+            className="w-full rounded-lg border border-gray-100 bg-white px-3 py-2 text-sm shadow-xs"
+          />
+        </label>
+        <label className="flex flex-col gap-2 text-sm text-gray-800">
+          شهر
+          <input
+            name="city"
+            value={filterValues.city}
+            onChange={(event) => handleInputChange(event)}
+            placeholder="جست‌وجو بر اساس شهر"
+            className="w-full rounded-lg border border-gray-100 bg-white px-3 py-2 text-sm shadow-xs"
+          />
+        </label>
+      </div>
+
       <AlertStats />
 
-      {/* Main Content Area */}
       <div className="grid grid-cols-12 pt-4 gap-4">
-        
-        <div className="col-span-12 ">
+        <div className="col-span-12">
           <AlertList
             filterValues={filterValues}
             data={filteredAlerts}
             isLoading={isGettingAlertsList}
           />
         </div>
-        {/* <div className="col-span-12 sm:col-span-4">
-          <RecentReports />
-        </div> */}
       </div>
     </section>
   );

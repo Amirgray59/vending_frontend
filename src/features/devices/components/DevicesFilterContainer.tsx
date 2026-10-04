@@ -209,8 +209,10 @@ export default function DevicesFilterContainer<T>({
                 name="inventory"
                 options={[
                   { id: "all", name:"همه" },
-                  { id: "ok", name: "به اندازه" },
-                  { id: "low", name: "کم" },
+                  { id: "empty", name: "خالی" },
+                  { id: "good", name: "خوب" },
+                  { id: "yellow", name: "متوسط" },
+                  { id: "red", name: "کم" },
                 ]}
               />
             </div>

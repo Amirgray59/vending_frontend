@@ -26,7 +26,7 @@ export default function DeviceListSection({
 
   const { isgettingprofile, profile } = UseGetProfile(); // اضافه شد
   const { devicesSection, isGettingDevicesSection } = UseGetDevicesSection(
-    sectionId as string,
+    sectionId,
     branchId as string,
   );
   const { deleteDevice, isDeletingDevice } = useDeleteDevice();
@@ -50,11 +50,13 @@ export default function DeviceListSection({
 
   const getStatusStyles = (status: string) => {
     switch (status) {
-      case "روشن":
+      case "online":
         return "bg-green-50 text-green-600 border-green-100";
-      case "خاموش":
+      case "offline":
         return "bg-gray-50 text-gray-500 border-gray-100";
-      case "آفلاین":
+      case "pending":
+      case "disabled":
+      case "maintenance":
         return "bg-red-50 text-red-600 border-red-100";
       default:
         return "bg-gray-50 text-gray-400 border-gray-100";

@@ -1,7 +1,8 @@
 
-import { Check, Wifi, AlertCircle, Power } from 'lucide-react';
+import { Check, Wifi, AlertCircle } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import useGetDeviceDetail from '@/shared/hooks/useGetDeviceDetail';
+import { getDeviceStatusInfo } from '@/utils/deviceStatus';
 
 const DeviceStatusCard = () => {
   const { deviceId } = useParams();
@@ -30,15 +31,16 @@ const DeviceStatusCard = () => {
 
   // منطق تعیین وضعیت بصری بر اساس دیتای بک‌اندم
   const isActive = device?.is_active;
-  const isPowerOn = device?.power_on;
+  const isOnline = device?.status === 'online';
+  const deviceStatus = getDeviceStatusInfo(device?.status);
 
   // رنگ و آیکون بر اساس وضعیت فعال بودن
   const statusConfig = {
-    color: isActive ? 'text-green-500' : 'text-red-500',
-    bgColor: isActive ? 'bg-green-500' : 'bg-red-500',
-    bgOpacity: isActive ? 'bg-green-100' : 'bg-red-100',
-    icon: isActive ? <Check size={32} strokeWidth={3.5} /> : <AlertCircle size={32} strokeWidth={3.5} />,
-    text: isActive ? 'دستگاه آنلاین و در حال کار است' : 'دستگاه غیرفعال یا آفلاین است',
+    color: deviceStatus.textColor,
+    bgColor: deviceStatus.bgColor,
+    bgOpacity: deviceStatus.bgOpacity,
+    icon: device?.status === 'online' ? <Check size={32} strokeWidth={3.5} /> : <AlertCircle size={32} strokeWidth={3.5} />,
+    text: deviceStatus.message,
     labelValue: isActive ? 'فعال' : 'غیرفعال'
   };
 
@@ -66,14 +68,14 @@ const DeviceStatusCard = () => {
             label: 'وضعیت', 
             value: statusConfig.labelValue, 
             icon: null, 
-            color: statusConfig.color, 
+            color: isActive ? 'text-green-500' : 'text-gray-500', 
             dot: true 
           },
           { 
             label: 'اتصال شبکه', 
-            value: isPowerOn ? 'مستقر' : 'قطع شده', 
+            value: isOnline ? 'مستقر' : 'قطع شده', 
             icon: <Wifi size={16} />, 
-            color: isPowerOn ? 'text-green-500' : 'text-red-500' 
+            color: isOnline ? 'text-green-500' : 'text-red-500' 
           },
         ].map((item, index) => (
           <div 
@@ -83,7 +85,7 @@ const DeviceStatusCard = () => {
           >
             <span className="text-gray-400 text-sm font-medium">{item.label}</span>
             <div className={`flex items-center gap-2 ${item.color} text-sm font-semibold`}>
-              {item.dot && <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-red-500'}`}></span>}
+              {item.dot && <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-gray-400'}`}></span>}
               {item.icon && <span className="text-gray-400">{item.icon}</span>}
               <span>{item.value}</span>
             </div>

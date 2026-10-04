@@ -1,35 +1,68 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import { setPriceWithSchedulesApi } from "../api/price";
+import { editPriceSchedulesApi, setPriceWithSchedulesApi } from "../api/price";
+import type {
+  PriceScheduleCreatePayload,
+  PriceScheduleUpdate,
+} from "../api/price";
+
+interface SavePriceSchedulesVariables {
+  deviceId: string;
+  schedules: PriceScheduleCreatePayload[];
+  updates: PriceScheduleUpdate[];
+}
 
 export function useSetPriceSchedules() {
   const queryClient = useQueryClient();
 
-  const {mutate:setPriceSchedules,isPending:isSettingPriceSchedules}= useMutation({
-    mutationFn: async ({ deviceId, payload }: { deviceId: string; payload: any }) => {
-      // فراخوانی تابع API که فرستاده بودید
-      return await setPriceWithSchedulesApi ({ deviceId, payload });
-    },
-    onSuccess: (data, variables) => {
-      // نمایش پیام موفقیت
-      toast.success("زمان‌بندی قیمت‌ها با موفقیت به‌روزرسانی شد");
+  const {
+    mutateAsync: setPriceSchedules,
+    isPending: isSettingPriceSchedules,
+  } = useMutation({
+    mutationFn: async ({
+      deviceId,
+      schedules,
+      updates,
+    }: SavePriceSchedulesVariables) => {
+      const requests = [
+        ...schedules.map((payload) =>
+          setPriceWithSchedulesApi({ deviceId, payload }),
+        ),
+        ...updates.map((update) => editPriceSchedulesApi(update)),
+      ];
 
-      // به‌روزرسانی کش برای اینکه دیتای جدید در صفحه نمایش داده شود
-      // فرض می‌کنم کلید کوئری شما "device-settings" است
-      queryClient.invalidateQueries({ 
-        queryKey: ["device-settings", variables.deviceId] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ["device", variables.deviceId] 
-      });
+      const results = await Promise.allSettled(requests);
+      const failedRequest = results.find((result) => result.status === "rejected");
+
+      if (failedRequest?.status === "rejected") throw failedRequest.reason;
+
+      return results;
+    },
+    onSuccess: () => {
+      toast.success("زمان‌بندی قیمت‌ها با موفقیت به‌روزرسانی شد");
     },
     onError: (error: any) => {
-      // نمایش پیام خطا
-      toast.error(error?.response?.data?.message || "خطا در به‌روزرسانی زمان‌بندی قیمت‌ها");
+      const detail = error?.response?.data?.detail;
+      const detailMessage = Array.isArray(detail)
+        ? detail
+            .map((item) => item?.msg)
+            .filter((message): message is string => typeof message === "string")
+            .join("، ")
+        : typeof detail === "string"
+          ? detail
+          : undefined;
+
+      toast.error(
+        error?.response?.data?.message ||
+          detailMessage ||
+          "خطا در به‌روزرسانی زمان‌بندی قیمت‌ها",
+      );
     },
+    onSettled: (_data, _error, variables) =>
+      queryClient.invalidateQueries({
+        queryKey: ["price-schedules", variables.deviceId],
+      }),
   });
-  return{
-    setPriceSchedules,
-    isSettingPriceSchedules
-  }
+
+  return { setPriceSchedules, isSettingPriceSchedules };
 }

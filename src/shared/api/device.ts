@@ -7,6 +7,7 @@ export interface DeviceQueryParams {
   q?: string;
   location_id?: string | null;
   section_id?: string | null;
+  city?: string | null;
   status?: string | null;
   connection?: string | null;
   inventory?: string | null;
@@ -32,6 +33,32 @@ export async function getDevicesListApi(params: DeviceQueryParams) {
 
   // حالا axios فقط پارامترهای معتبر را به صورت Query String می‌فرستد
   return await clientApi.get("/devices", { params: cleanedParams }).then(({ data }) => data);
+}
+
+export async function getAllDevicesListApi(params: DeviceQueryParams) {
+  const pageSize = 200;
+  const firstPage = await getDevicesListApi({ ...params, page: 1, size: pageSize });
+  const total = Number(firstPage?.total ?? firstPage?.items?.length ?? 0);
+  const pageCount = Math.ceil(total / pageSize);
+
+  if (pageCount <= 1) {
+    return { ...firstPage, items: firstPage?.items ?? [], total };
+  }
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: pageCount - 1 }, (_, index) =>
+      getDevicesListApi({ ...params, page: index + 2, size: pageSize }),
+    ),
+  );
+
+  return {
+    ...firstPage,
+    items: [
+      ...(firstPage?.items ?? []),
+      ...remainingPages.flatMap((page: any) => page?.items ?? []),
+    ],
+    total,
+  };
 }
 
 export async function getDeviceDetailApi(id: string) {

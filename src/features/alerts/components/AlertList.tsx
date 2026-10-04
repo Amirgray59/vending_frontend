@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Download,
   AlertTriangle,
@@ -23,6 +23,8 @@ interface AlertItem {
   id: string;
   type: string;
   device_code: string;
+  location_id?: string | null;
+  section_id?: string | null;
   location?: string;
   resolved: boolean;
   acknowledged: boolean;
@@ -40,6 +42,10 @@ interface AlertListProps {
 export default function AlertList({ data = [], isLoading ,filterValues}: AlertListProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [data, filterValues]);
 
   const { isgettingprofile, profile } = UseGetProfile();
   const { isResolvingAlert, resolveAlert } = useResolveAlert();
@@ -87,7 +93,15 @@ const {executeGetAlertsCsv,isGettingAlertsCsvReports}=useGetTransactionsCSVRepor
     try {
       // ۱. آماده‌سازی پارامترها (هماهنگ با نام‌های API)
       const params = {
-        places: filterValues.places === "all" ? undefined : filterValues.places,
+        location_id: filterValues.places === "all" ? undefined : filterValues.places,
+        type: filterValues.alertType === "all" ? undefined : filterValues.alertType,
+        severity: filterValues.intensity === "all" ? undefined : filterValues.intensity,
+        resolved:
+          filterValues.status === "all" ? undefined : filterValues.status === "resolved",
+        acknowledged:
+          filterValues.acknowledged === "all"
+            ? undefined
+            : filterValues.acknowledged === "acknowledged",
       };
 
       console.log("🚀 Sending Params to API:", params);

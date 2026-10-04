@@ -1,4 +1,5 @@
 import clientApi from "@/shared/clientApi/clientApi";
+import { getAllDevicesListApi } from "@/shared/api/device";
 
 
 
@@ -11,5 +12,5 @@ export async function deleteSectionApi(id:string){
 }
 
 export async function getDevicesSection(sectionId:string,locationId:string){
-    return await clientApi.get(`/devices?location_id=${locationId}&section_id=${sectionId}`).then(({data})=>data);
+    return await getAllDevicesListApi({ location_id: locationId, section_id: sectionId });
 }

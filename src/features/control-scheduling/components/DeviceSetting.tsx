@@ -17,8 +17,12 @@ import useGetDeviceSetting from "@/features/device-detail/hooks/useGetDeviceSett
 // --- وارد کردن هوک‌های زمان‌بندی ---
 import { useGetPriceSchedules } from "../hooks/useGetPriceSchedules";
 import { useSetPriceSchedules } from "../hooks/useSetPriceWithSchedules";
-import { useEditPriceSchedule } from "../hooks/useEditPriceSchedules";
 import { useDeletePriceSchedule } from "../hooks/useDeletePriceSchedules";
+import type {
+  PriceRange,
+  PriceScheduleCreatePayload,
+  PriceScheduleUpdate,
+} from "../api/price";
 
 
 interface TimeSlot {
@@ -47,7 +51,6 @@ export default function DeviceSetting() {
   // --- هوک‌های داینامیک زمان‌بندی ---
   const { priceSchedules, isGettingPriceSchedules } = useGetPriceSchedules(deviceId as string);
   const { setPriceSchedules, isSettingPriceSchedules } = useSetPriceSchedules();
-  const { editePriceSchedules, isEditingPriceSchedules } = useEditPriceSchedule();
   const { deletePriceSchedules, isDeletingPriceSchedules } = useDeletePriceSchedule();
 
   // Hooks for updates
@@ -171,22 +174,47 @@ export default function DeviceSetting() {
   };
 
   const handleSaveSchedules = async () => {
-    const payloadArray = timeSlots.flatMap(day => 
-      day.slots.map(slot => {
+    if (!deviceId) return;
+
+    const schedules: PriceScheduleCreatePayload[] = [];
+    const updates: PriceScheduleUpdate[] = [];
+
+    timeSlots.forEach((day) => {
+      const newRanges: PriceRange[] = [];
+
+      day.slots.forEach((slot) => {
         const [startH, startM] = slot.start.split(':').map(Number);
         const [endH, endM] = slot.end.split(':').map(Number);
-        return {
-          day_of_week: day.day,
+
+        const range: PriceRange = {
           start_hour: startH,
           start_minute: startM,
           end_hour: endH,
           end_minute: endM,
-          price: slot.price
+          price: slot.price,
         };
-      })
-    );
+
+        if (slot.id) {
+          updates.push({
+            scheduleId: slot.id,
+            payload: { day_of_week: day.day, ...range },
+          });
+        } else {
+          newRanges.push(range);
+        }
+      });
+
+      if (newRanges.length > 0) {
+        schedules.push({ day_of_week: day.day, ranges: newRanges });
+      }
+    });
+
     try {
-      await setPriceSchedules({ deviceId: deviceId as string, payload: { ranges: payloadArray } });
+      await setPriceSchedules({
+        deviceId: deviceId as string,
+        schedules,
+        updates,
+      });
       setIsModalOpen(false);
     } catch (error) {
       console.error(error);

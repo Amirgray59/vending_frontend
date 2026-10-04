@@ -12,7 +12,7 @@ import Skeleton from "react-loading-skeleton";
 import ConfirmModal from "@/components/shared/ConfirmModal";
 import { useDeleteSection } from "../hooks/useDeleteSection";
 import { useParams } from "next/navigation";
-import clientApi from "@/shared/clientApi/clientApi";
+import { getDevicesListApi } from "@/shared/api/device";
 import { hasActionPermission } from "@/shared/permisseions/permissionUtils";
 import UseGetProfile from "@/shared/hooks/useGetProfile";
 
@@ -37,9 +37,14 @@ const SectionRow = ({
     let isMounted = true;
     const fetchDeviceCount = async () => {
       try {
-        const response = await clientApi.get(`/devices/?location_id=${locationId}&section_id=${item.id}`);
-        const items = response?.data?.items || [];
-        if (isMounted) setDeviceCount(items.length);
+        const response = await getDevicesListApi({
+          location_id: locationId,
+          section_id: item.id,
+          page: 1,
+          size: 1,
+        });
+        const count = Number(response?.total ?? response?.items?.length ?? 0);
+        if (isMounted) setDeviceCount(count);
       } catch (error) {
         console.error(`Error fetching devices for section ${item.id}:`, error);
         if (isMounted) setDeviceCount(0);

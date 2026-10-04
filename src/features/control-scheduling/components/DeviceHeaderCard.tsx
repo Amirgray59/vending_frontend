@@ -59,13 +59,6 @@ export default function DeviceHeaderCard() {
                 </p>
               </div>
 
-              {/* Online/Offline status based on power_on field */}
-              <div className="flex items-center justify-center sm:justify-start gap-2">
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-gray-500">
-                  <span className={`w-2.5 h-2.5 rounded-full ${device?.power_on ? "bg-[#10B981]" : "bg-red-500"}`}></span>
-                  {device?.power_on ? "آنلاین" : "آفلاین"}
-                </span>
-              </div>
             </div>
 
             <div className="flex items-center px-2">

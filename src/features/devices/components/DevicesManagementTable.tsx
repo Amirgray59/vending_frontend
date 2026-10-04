@@ -68,6 +68,7 @@ export default function DeviceManagementTable({ filters }: { filters: any }) {
       filters.sections === "all" || filters.sections === "all_sections"
         ? null
         : filters.sections,
+    city: filters.city === "all" ? null : filters.city,
     status:
       filters.status === "all" || filters.status === "all_status"
         ? null

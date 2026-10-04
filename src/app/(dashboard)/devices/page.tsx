@@ -33,6 +33,7 @@ export default function DevicesPage() {
         inventory: searchParams.get("inventory") || "",
         connection: searchParams.get("connection") || "",
         deviceId: searchParams.get("device_id") || "all",
+        city: searchParams.get("city") || "all",
         search: searchParams.get("q") || "",
       };
     }
