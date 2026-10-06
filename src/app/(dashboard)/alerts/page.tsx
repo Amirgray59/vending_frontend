@@ -8,6 +8,8 @@ import AlertStats from "@/features/alerts/components/AlertsStatus";
 import useGetAlertList from "@/features/alerts/hooks/useGetAlertList";
 import UseGetSections from "@/shared/hooks/useGetSections";
 import { useEffect, useMemo, useState } from "react";
+import { FaSlidersH } from "react-icons/fa";
+import { LuFilter } from "react-icons/lu";
 
 interface ChangeHandlerEvent {
   target: {
@@ -79,6 +81,7 @@ const initialFilters = {
 
 export default function Page() {
   const [filterValues, setFilterValues] = useState(initialFilters);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [debouncedTextFilters, setDebouncedTextFilters] = useState({
     fullName: "",
     city: "",
@@ -147,43 +150,62 @@ export default function Page() {
     <section className="p-4">
       <PageTitle title="هشدارها" description="داشبورد / هشدارها" />
 
-      <FilterContainer
-        filterValues={filterValues}
-        handleInputChange={handleInputChange}
-        className="grid xl:grid-cols-5 gap-4 py-4 grid-cols-2"
-        optionsMap={optionsMap}
-        isClearFilter
-        onClearFilters={handleClearFilters}
-      />
+      <div className="pt-4">
+        <button
+          onClick={() => setIsFilterOpen((isOpen) => !isOpen)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
+            isFilterOpen
+              ? "bg-blue-600 text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          <LuFilter className="w-4 h-4" />
+          <span>فیلترها</span>
+          <FaSlidersH className="w-3 h-3" />
+        </button>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 pb-4">
-        <SelectInput
-          name="sections"
-          title="بخش"
-          options={sectionOptions}
-          filterValues={filterValues}
-          handleChange={handleInputChange}
-        />
-        <label className="flex flex-col gap-2 text-sm text-gray-800">
-          نام دستگاه
-          <input
-            name="fullName"
-            value={filterValues.fullName}
-            onChange={(event) => handleInputChange(event)}
-            placeholder="جست‌وجو بر اساس نام دستگاه"
-            className="w-full rounded-lg border border-gray-100 bg-white px-3 py-2 text-sm shadow-xs"
-          />
-        </label>
-        <label className="flex flex-col gap-2 text-sm text-gray-800">
-          شهر
-          <input
-            name="city"
-            value={filterValues.city}
-            onChange={(event) => handleInputChange(event)}
-            placeholder="جست‌وجو بر اساس شهر"
-            className="w-full rounded-lg border border-gray-100 bg-white px-3 py-2 text-sm shadow-xs"
-          />
-        </label>
+        {isFilterOpen && (
+          <div className="mt-3 flex flex-col gap-3 p-4 bg-gray-50 border border-gray-100 rounded-xl animate-in fade-in slide-in-from-top-2 duration-200">
+            <FilterContainer
+              filterValues={filterValues}
+              handleInputChange={handleInputChange}
+              className="grid xl:grid-cols-5 gap-4 grid-cols-2"
+              optionsMap={optionsMap}
+              isClearFilter
+              onClearFilters={handleClearFilters}
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              <SelectInput
+                name="sections"
+                title="بخش"
+                options={sectionOptions}
+                filterValues={filterValues}
+                handleChange={handleInputChange}
+              />
+              <label className="flex flex-col gap-2 text-sm text-gray-800">
+                نام دستگاه
+                <input
+                  name="fullName"
+                  value={filterValues.fullName}
+                  onChange={(event) => handleInputChange(event)}
+                  placeholder="جست‌وجو بر اساس نام دستگاه"
+                  className="w-full rounded-lg border border-gray-100 bg-white px-3 py-2 text-sm shadow-xs"
+                />
+              </label>
+              <label className="flex flex-col gap-2 text-sm text-gray-800">
+                شهر
+                <input
+                  name="city"
+                  value={filterValues.city}
+                  onChange={(event) => handleInputChange(event)}
+                  placeholder="جست‌وجو بر اساس شهر"
+                  className="w-full rounded-lg border border-gray-100 bg-white px-3 py-2 text-sm shadow-xs"
+                />
+              </label>
+            </div>
+          </div>
+        )}
       </div>
 
       <AlertStats />

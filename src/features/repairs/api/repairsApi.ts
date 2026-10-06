@@ -15,6 +15,14 @@ interface UpdateRepairData{
     }
 }
 
+export interface MaintenanceTaskQueryParams {
+    device_id?: string;
+    resolved?: boolean;
+    sort?: string;
+    page?: number;
+    size?: number;
+}
+
 export async function createRepairsApi(data:CreateRepairsData){
     return await clientApi.post(`/maintenance-tasks`,data).then(({data})=>data)
 }
@@ -32,8 +40,8 @@ export async function deleteDeviceRepairApi(repairId:string){
     return await clientApi.delete(`/maintenance-tasks/${repairId}`).then(({data})=>data)
 }
 
-export async function getAllRepairsApi(){
-    return await clientApi.get(`/maintenance-tasks`).then(({data})=>data)
+export async function getAllRepairsApi(params: MaintenanceTaskQueryParams = {}){
+    return await clientApi.get(`/maintenance-tasks`, { params }).then(({data})=>data)
 }
 
 export async function resolveRepairApi({ repairId, payload }: { repairId: string, payload: { note: string } }) {

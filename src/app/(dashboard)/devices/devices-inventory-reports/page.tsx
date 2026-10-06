@@ -16,6 +16,7 @@ import {
 import { Loader2, Box } from "lucide-react";
 import useGetDeviceInventoryTransactions from "@/features/device-detail/hooks/useGetDeviceInventoryTransActions";
 import DevicesAdvancedFilter from "@/features/devices/components/DeviceAdvancedFilter";
+import { getInventoryPercentageChartData } from "@/features/device-detail/utils/getInventoryPercentageChartData";
 
 export default function DevicesInventoryReportPage() {
   // --- استیت‌ها ---
@@ -74,29 +75,23 @@ export default function DevicesInventoryReportPage() {
   }, [devicesList, filters]);
 
   // --- پردازش داده‌های تراکنش برای نمودار (تغییرات یک هفته اخیر) ---
-  const chartData = useMemo(() => {
-    if (!deviceInventoryTransactions?.items) return [];
-
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
-    const recentTransactions = deviceInventoryTransactions.items.filter(
-      (tx: any) => tx.created_at && new Date(tx.created_at) >= oneWeekAgo,
-    );
-
-    const dailyMap: Record<string, number> = {};
-    recentTransactions.forEach((tx: any) => {
-      if (tx.created_at) {
-        const date = tx.created_at.split("T")[0]; // YYYY-MM-DD
-        dailyMap[date] = (dailyMap[date] || 0) + (tx.delta || 0);
-      }
-    });
-
-
-    return Object.entries(dailyMap)
-      .map(([date, amount]) => ({ date, amount }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-  }, [deviceInventoryTransactions]);
+  const selectedDevice = filteredDevices.find(
+    (device: any) => device.id === selectedDeviceId,
+  );
+  const inventoryCapacity = selectedDevice?.inventory_capacity;
+  const chartData = useMemo(
+    () =>
+      getInventoryPercentageChartData(
+        deviceInventoryTransactions?.items,
+        inventoryCapacity,
+      ),
+    [deviceInventoryTransactions, inventoryCapacity],
+  );
+  const hasCapacity =
+    Number.isFinite(Number(inventoryCapacity)) && Number(inventoryCapacity) > 0;
+  const hasInventoryHistory = chartData.some(
+    (item) => item.percentage !== null,
+  );
 
   if (isGettingDevicesList) {
     return (
@@ -169,16 +164,23 @@ export default function DevicesInventoryReportPage() {
           ) : (
             <div className="bg-white p-6 border border-gray-100 shadow-sm rounded-2xl h-full">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-bold text-gray-700">تغییرات موجودی هفته اخیر</h3>
+                <h3 className="text-lg font-bold text-gray-700">درصد موجودی هفته اخیر</h3>
                 <div className="text-xs font-medium px-3 py-1 bg-blue-100 text-blue-700 rounded-full">
                   {filteredDevices.find((d: any) => d.id === selectedDeviceId)?.name}
                 </div>
               </div>
 
               {isGettingDeviceInventoryTransactions ? (
-
                 <div className="h-[400px] flex items-center justify-center">
                   <Loader2 className="animate-spin text-blue-600" size={32} />
+                </div>
+              ) : !hasCapacity ? (
+                <div className="h-[400px] flex items-center justify-center px-6 text-center text-sm text-gray-500">
+                  ابتدا ظرفیت موجودی دستگاه را در جزئیات آن وارد کنید تا نمودار درصدی نمایش داده شود.
+                </div>
+              ) : !hasInventoryHistory ? (
+                <div className="h-[400px] flex items-center justify-center px-6 text-center text-sm text-gray-500">
+                  برای این بازه زمانی سابقه‌ای از سطح موجودی ثبت نشده است.
                 </div>
               ) : (
                 <div className="h-[400px] w-full">
@@ -186,7 +188,12 @@ export default function DevicesInventoryReportPage() {
                     <LineChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                      <YAxis
+                        tick={{ fontSize: 10, fill: "#94a3b8" }}
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={(value: any) => String(value) + "%"}
+                      />
                       <Tooltip
                         contentStyle={{
                           borderRadius: "8px",
@@ -196,25 +203,22 @@ export default function DevicesInventoryReportPage() {
                         }}
                         itemStyle={{ color: "#475569", fontSize: "12px" }}
                         labelStyle={{ color: "#94a3b8", fontSize: "11px", marginBottom: "4px" }}
-                        formatter={(value: any) => [`${value} واحد`, "تغییر موجودی"]}
+                        formatter={(value: any) => [
+                          Number(value).toLocaleString("fa-IR", { maximumFractionDigits: 1 }) + "%",
+                          "درصد موجودی",
+                        ]}
                       />
                       <Line
                         type="monotone"
-                        dataKey="amount"
+                        dataKey="percentage"
                         stroke="#2563eb"
                         strokeWidth={3}
                         dot={{ r: 4, fill: "#2563eb" }}
                         activeDot={{ r: 6 }}
+                        connectNulls
                       />
                     </LineChart>
                   </ResponsiveContainer>
-                </div>
-              )}
-
-              {chartData.length === 0 && !isGettingDeviceInventoryTransactions && (
-                <div className="flex flex-col items-center justify-center h-[400px] text-center py-10 text-gray-400 text-sm">
-                  <Box size={40} className="mb-3 opacity-20" />
-                  <p>برای این دستگاه در هفته اخیر تراکنشی ثبت نشده است.</p>
                 </div>
               )}
             </div>

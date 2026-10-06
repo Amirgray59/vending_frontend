@@ -3,9 +3,15 @@
 
 import useGetAllRepairs from "@/features/repairs/hooks/useGetAllRepairs";
 import { useResolveRepair } from "@/features/repairs/hooks/useresolveRepair";
+import StyledPagination from "@/components/ui/Pagination";
+import SelectInput from "@/components/form/SelectInput";
+import { getAllDevicesListApi } from "@/shared/api/device";
 import { Wrench, Loader2, MapPin, LayoutGrid, X } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FaCheck } from "react-icons/fa6";
+import { FaSlidersH } from "react-icons/fa";
+import { LuFilter } from "react-icons/lu";
+import { useQuery } from "@tanstack/react-query";
 import UseGetProfile from "@/shared/hooks/useGetProfile"; 
 import { hasActionPermission } from "@/shared/permisseions/permissionUtils"; 
 import UseGetLocations from "@/shared/hooks/useGetLocations";
@@ -24,11 +30,34 @@ interface RepairItem {
 
 export default function Page() {
   const [isShowModal, setIsShowModal] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filterValues, setFilterValues] = useState({
+    device_id: "all",
+    resolved: "all",
+    sort: "none",
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [selectedRepairId, setSelectedRepairId] = useState<string | null>(null);
   const [resolveDescription, setResolveDescription] = useState("");
 
   const { isgettingprofile, profile } = UseGetProfile();
-  const { isgettingRepairs, repairs } = useGetAllRepairs();
+  const repairsQuery = useMemo(
+    () => ({
+      device_id: filterValues.device_id === "all" ? undefined : filterValues.device_id,
+      resolved:
+        filterValues.resolved === "all" ? undefined : filterValues.resolved === "resolved",
+      sort: filterValues.sort === "device" ? "device" : undefined,
+      page: currentPage,
+      size: pageSize,
+    }),
+    [filterValues, currentPage, pageSize],
+  );
+  const { isgettingRepairs, repairs } = useGetAllRepairs(repairsQuery);
+  const { data: deviceList } = useQuery({
+    queryKey: ["maintenance-device-filter-options"],
+    queryFn: () => getAllDevicesListApi({}),
+  });
   const { isResolvingRepair, resolveRepair } = useResolveRepair();
   const { locations, isGettingLocations } = UseGetLocations();
   const { sectionsList, isGettingSectionsList } = UseGetAllSection();
@@ -43,7 +72,18 @@ export default function Page() {
     return found ? found.name : "نامشخص";
   };
 
-  const unresolvedRepairs = (repairs?.items || []).filter((item: RepairItem) => item.resolved === false);
+  const repairItems = repairs?.items || [];
+  const totalPages = Math.ceil((repairs?.total || 0) / pageSize);
+
+  const handleFilterChange = (event: { target: { name: string; value: string } }) => {
+    setFilterValues((previous) => ({ ...previous, [event.target.name]: event.target.value }));
+    setCurrentPage(1);
+  };
+
+  const handleClearFilters = () => {
+    setFilterValues({ device_id: "all", resolved: "all", sort: "none" });
+    setCurrentPage(1);
+  };
 
   const handleConfirmResolve = async () => {
     if (!selectedRepairId) return;
@@ -83,24 +123,92 @@ export default function Page() {
   return (
     <section className="p-4">
       <div className="space-y-4">
-        <h2 className="text-sm font-bold text-slate-600 mb-4">سوابق تعمیرات</h2>
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-sm font-bold text-slate-600">سوابق تعمیرات</h2>
+          <button
+            onClick={() => setIsFilterOpen((isOpen) => !isOpen)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
+              isFilterOpen
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            <LuFilter className="w-4 h-4" />
+            <span>فیلترها</span>
+            <FaSlidersH className="w-3 h-3" />
+          </button>
+        </div>
 
-        {unresolvedRepairs.length === 0 ? (
+        {isFilterOpen && (
+          <div className="flex flex-col gap-3 p-4 bg-gray-50 border border-gray-100 rounded-xl animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              <SelectInput
+                title="دستگاه"
+                name="device_id"
+                filterValues={filterValues}
+                handleChange={handleFilterChange}
+                options={[
+                  { id: "all", name: "همه دستگاه‌ها" },
+                  ...(deviceList?.items ?? []).map((device: any) => ({
+                    id: device.id,
+                    name: device.device_code
+                      ? `${device.name} (${device.device_code})`
+                      : device.name,
+                  })),
+                ]}
+              />
+              <SelectInput
+                title="وضعیت تعمیر"
+                name="resolved"
+                filterValues={filterValues}
+                handleChange={handleFilterChange}
+                options={[
+                  { id: "all", name: "همه وضعیت‌ها" },
+                  { id: "unresolved", name: "حل‌نشده" },
+                  { id: "resolved", name: "حل‌شده" },
+                ]}
+              />
+              <SelectInput
+                title="مرتب‌سازی"
+                name="sort"
+                filterValues={filterValues}
+                handleChange={handleFilterChange}
+                options={[
+                  { id: "none", name: "ترتیب پیش‌فرض" },
+                  { id: "device", name: "دستگاه‌های دارای تعمیر بیشتر" },
+                ]}
+              />
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={handleClearFilters}
+                className="px-3 py-2 text-xs text-red-500 hover:bg-red-50 rounded-md transition-colors"
+              >
+                پاک‌کردن فیلترها
+              </button>
+            </div>
+          </div>
+        )}
+
+        {repairItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-slate-400 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
             <Wrench size={48} className="mb-3 opacity-20" />
-            <p className="text-sm">تعمیرات حل نشده‌ای وجود ندارد.</p>
+            <p className="text-sm">تعمیراتی با این فیلترها یافت نشد.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3">
-            {unresolvedRepairs.map((item: RepairItem) => (
+            {repairItems.map((item: RepairItem) => (
               <div
                 key={item.id}
 
                 className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white border border-gray-100 rounded-xl hover:border-blue-200 transition-all shadow-sm group gap-4"
               >
                 <div className="flex flex-col gap-2 flex-1 min-w-0 overflow-hidden">
-                  <div className="flex items-center justify-between sm:justify-start gap-3">
+                  <div className="flex flex-wrap items-center justify-between sm:justify-start gap-3">
                     <div className="text-blue-600 font-semibold text-sm">{item.title}</div>
+                    <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${item.resolved ? "bg-green-50 text-green-600" : "bg-amber-50 text-amber-600"}`}>
+                      {item.resolved ? "حل‌شده" : "حل‌نشده"}
+                    </span>
                     {item.device_code && (
                       <div className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-mono uppercase">
                         {item.device_code}
@@ -126,7 +234,7 @@ export default function Page() {
                 </div>
 
                 <div className="flex gap-2 shrink-0 self-end sm:self-center">
-                  {hasActionPermission(profile?.role, 'canCreate') && (
+                  {!item.resolved && hasActionPermission(profile?.role, 'canCreate') && (
                     <button
                       onClick={() => handleClick(item.id)}
                       disabled={isResolvingRepair && selectedRepairId === item.id}
@@ -144,6 +252,16 @@ export default function Page() {
               </div>
             ))}
           </div>
+        )}
+
+        {repairs?.total > pageSize && (
+          <StyledPagination
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
+          />
         )}
       </div>
 
