@@ -3,8 +3,8 @@
 import React, { useMemo, useState } from "react";
 import { Database } from "lucide-react";
 import {
-  AreaChart,
-  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -13,38 +13,38 @@ import {
 } from "recharts";
 import { useParams } from "next/navigation";
 import useGetDeviceInventoryTransactions from "../hooks/useGetDeviceInventoryTransActions";
-import useGetDeviceDetail from "@/shared/hooks/useGetDeviceDetail";
 import {
-  getAllInventoryPercentageChangesChartData,
-  getInventoryPercentageChartData,
+  getAllInventoryDeltaChartData,
+  getDailyInventoryDeltaChartData,
 } from "../utils/getInventoryPercentageChartData";
+
+function formatInventoryDelta(value: number | null | undefined) {
+  if (value === null || value === undefined) return "—";
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toLocaleString("fa-IR")}`;
+}
 
 export default function InventoryTabChart() {
   const [chartMode, setChartMode] = useState<"daily" | "all">("daily");
   const { deviceId } = useParams();
   const { deviceInventoryTransactions, isGettingDeviceInventoryTransactions } =
     useGetDeviceInventoryTransactions(deviceId as string);
-  const { device, isGettingDevice } = useGetDeviceDetail(deviceId as string);
 
   const chartData = useMemo(
     () => {
       const items = deviceInventoryTransactions?.items;
-      const capacity = device?.inventory_capacity;
 
       return chartMode === "daily"
-        ? getInventoryPercentageChartData(items, capacity)
-        : getAllInventoryPercentageChangesChartData(items, capacity);
+        ? getDailyInventoryDeltaChartData(items)
+        : getAllInventoryDeltaChartData(items);
     },
-    [chartMode, deviceInventoryTransactions, device?.inventory_capacity],
+    [chartMode, deviceInventoryTransactions],
   );
-  const hasCapacity =
-    Number.isFinite(Number(device?.inventory_capacity)) &&
-    Number(device?.inventory_capacity) > 0;
   const hasInventoryHistory = chartData.some(
-    (item) => item.percentage !== null,
+    (item) => item.delta !== null,
   );
 
-  if (isGettingDeviceInventoryTransactions || isGettingDevice) {
+  if (isGettingDeviceInventoryTransactions) {
     return (
       <div className="lg:col-span-2 bg-white rounded-lg border border-gray-100 shadow-sm p-6 h-full flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center gap-3">
@@ -62,8 +62,8 @@ export default function InventoryTabChart() {
           <Database size={20} className="text-slate-400" />
           <h3 className="text-slate-700 font-bold text-base">
             {chartMode === "daily"
-              ? "روند روزانه درصد موجودی"
-              : "درصد همه تغییرات موجودی"}
+              ? "روند روزانه موجودی (۷ روز اخیر)"
+              : "همهٔ تغییرات موجودی"}
           </h3>
           <label className="flex items-center gap-2 text-sm text-slate-500 sm:mr-auto">
             <span>نمایش</span>
@@ -81,25 +81,15 @@ export default function InventoryTabChart() {
           </label>
         </div>
         <div className="h-[250px] w-full">
-          {!hasCapacity ? (
-            <div className="flex h-full items-center justify-center px-4 text-center text-sm text-gray-500">
-              ابتدا ظرفیت موجودی دستگاه را وارد کنید تا نمودار درصدی نمایش داده شود.
-            </div>
-          ) : !hasInventoryHistory ? (
+          {!hasInventoryHistory ? (
             <div className="flex h-full items-center justify-center px-4 text-center text-sm text-gray-500">
               {chartMode === "daily"
-                ? "برای این بازه زمانی سابقه‌ای از سطح موجودی ثبت نشده است."
+                ? "برای این بازه زمانی تغییری در موجودی ثبت نشده است."
                 : "تغییری برای نمایش ثبت نشده است."}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="colorInventory" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
+              <LineChart data={chartData} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
@@ -118,36 +108,40 @@ export default function InventoryTabChart() {
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: "#94a3b8", fontSize: 12 }}
-                  tickFormatter={(value: any) => String(value) + "%"}
+                  allowDecimals={false}
+                  tickFormatter={(value: any) =>
+                    Number(value).toLocaleString("fa-IR")
+                  }
                 />
                 <Tooltip
-                  labelFormatter={(label: any, payload: any[]) =>
-                    payload?.[0]?.payload?.tooltipLabel ?? label
-                  }
-                  contentStyle={{
-                    borderRadius: "12px",
-                    border: "none",
-                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                    direction: "rtl",
+                  content={({ active, payload, label }: any) => {
+                    const point = payload?.[0]?.payload;
+                    if (!active || !point) return null;
+
+                    return (
+                      <div className="rounded-xl border border-gray-100 bg-white p-3 text-right text-xs shadow-lg" dir="rtl">
+                        <p className="mb-2 font-semibold text-slate-700">
+                          {point.tooltipLabel ?? label}
+                        </p>
+                        <p className="text-emerald-600">
+                          میزان تغییر: {formatInventoryDelta(point.delta)} عدد
+                        </p>
+                      </div>
+                    );
                   }}
-                  formatter={(value: any) => [
-                    Number(value).toLocaleString("fa-IR", { maximumFractionDigits: 1 }) + "%",
-                    "درصد موجودی",
-                  ]}
                 />
-                <Area
+                <Line
                   type="monotone"
-                  dataKey="percentage"
+                  dataKey="delta"
+                  name="میزان تغییر موجودی"
                   stroke="#10b981"
                   strokeWidth={3}
-                  fillOpacity={1}
-                  fill="url(#colorInventory)"
                   connectNulls
-                  dot={chartMode === "all" ? { r: 2, strokeWidth: 0 } : false}
+                  dot={chartMode === "all" ? { r: 3 } : false}
                   activeDot={{ r: 5 }}
                   isAnimationActive={false}
                 />
-              </AreaChart>
+              </LineChart>
             </ResponsiveContainer>
           )}
         </div>

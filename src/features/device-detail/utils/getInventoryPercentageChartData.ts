@@ -13,6 +13,13 @@ export interface InventoryPercentagePoint {
   tooltipLabel?: string;
 }
 
+export interface InventoryDeltaPoint {
+  date: string;
+  day: string;
+  delta: number | null;
+  tooltipLabel?: string;
+}
+
 interface InventorySnapshot {
   item: InventoryHistoryItem;
   timestamp: number;
@@ -29,13 +36,12 @@ function getInventorySnapshots(
   items: InventoryHistoryItem[] | undefined,
 ): InventorySnapshot[] {
   const sortedItems = (items ?? [])
-    .map((item, index) => ({
+    .map((item) => ({
       item,
-      index,
       timestamp: item.created_at ? Date.parse(item.created_at) : Number.NaN,
     }))
     .filter(({ timestamp }) => Number.isFinite(timestamp))
-    .sort((a, b) => a.timestamp - b.timestamp || a.index - b.index);
+    .sort((a, b) => a.timestamp - b.timestamp);
 
   let previousLevel: number | null = null;
 
@@ -43,7 +49,7 @@ function getInventorySnapshots(
     const beforeLevel = toFiniteNumber(item.before_level);
     const afterLevel = toFiniteNumber(item.after_level);
     const delta = toFiniteNumber(item.delta);
-    const level =
+    const resolvedLevel =
       afterLevel ??
       (beforeLevel !== null && delta !== null
         ? beforeLevel + delta
@@ -51,10 +57,112 @@ function getInventorySnapshots(
           ? previousLevel + delta
           : beforeLevel);
 
-    if (level === null) return [];
-    previousLevel = level;
-    return [{ item, timestamp, level }];
+    if (resolvedLevel === null) return [];
+    previousLevel = resolvedLevel;
+    return [{ item, timestamp, level: resolvedLevel }];
   });
+}
+
+export function getDailyInventoryDeltaChartData(
+  items: InventoryHistoryItem[] | undefined,
+  days = 7,
+  now = new Date(),
+): InventoryDeltaPoint[] {
+  const dayNames = [
+    "یکشنبه",
+    "دوشنبه",
+    "سه‌شنبه",
+    "چهارشنبه",
+    "پنجشنبه",
+    "جمعه",
+    "شنبه",
+  ];
+  const today = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  const dayMilliseconds = 24 * 60 * 60 * 1000;
+  const firstDayStart = today.getTime() - (days - 1) * dayMilliseconds;
+  const finalDayEnd = today.getTime() + dayMilliseconds - 1;
+  const dailyChanges = new Map<
+    string,
+    { delta: number; hasDelta: boolean }
+  >();
+  let hasChangesInRange = false;
+
+  (items ?? []).forEach((item) => {
+    const timestamp = item.created_at ? Date.parse(item.created_at) : Number.NaN;
+    if (!Number.isFinite(timestamp)) return;
+
+    const dateKey = new Date(timestamp).toISOString().slice(0, 10);
+    if (timestamp < firstDayStart || timestamp > finalDayEnd) return;
+
+    hasChangesInRange = true;
+    const current = dailyChanges.get(dateKey) ?? { delta: 0, hasDelta: false };
+    const itemDelta = toFiniteNumber(item.delta);
+    if (itemDelta !== null) {
+      current.delta += itemDelta;
+      current.hasDelta = true;
+    }
+    dailyChanges.set(dateKey, current);
+  });
+
+  return Array.from({ length: days }, (_, index) => {
+    const date = new Date(today);
+    date.setUTCDate(today.getUTCDate() - (days - index - 1));
+    const dateKey = date.toISOString().slice(0, 10);
+    const dailyChange = dailyChanges.get(dateKey);
+
+    return {
+      date: dateKey,
+      day: dayNames[date.getUTCDay()],
+      delta: !hasChangesInRange
+        ? null
+        : dailyChange?.hasDelta
+          ? dailyChange.delta
+          : dailyChange
+            ? null
+            : 0,
+    };
+  });
+}
+
+export function getAllInventoryDeltaChartData(
+  items: InventoryHistoryItem[] | undefined,
+): InventoryDeltaPoint[] {
+  const dateTimeFormatter = new Intl.DateTimeFormat("fa-IR", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const fullDateTimeFormatter = new Intl.DateTimeFormat("fa-IR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+
+  return (items ?? [])
+    .map((item, index) => ({
+      item,
+      index,
+      timestamp: item.created_at ? Date.parse(item.created_at) : Number.NaN,
+    }))
+    .filter(({ timestamp }) => Number.isFinite(timestamp))
+    .sort((a, b) => a.timestamp - b.timestamp || a.index - b.index)
+    .map(({ item, timestamp }) => {
+      const date = new Date(timestamp);
+      return {
+        date: date.toISOString(),
+        day: dateTimeFormatter.format(date),
+        tooltipLabel: fullDateTimeFormatter.format(date),
+        delta: toFiniteNumber(item.delta),
+      };
+    });
 }
 
 export function getInventoryPercentageChartData(
