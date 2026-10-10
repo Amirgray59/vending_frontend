@@ -5,6 +5,8 @@ import React, { useState } from "react";
 import { Trash2, Edit3, Plus, Check, X, Loader2, Wrench, AlertCircle } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useCreateRepair } from "@/features/repairs/hooks/useCreateRepair";
+import useGetMaintenanceCategories from "@/features/repairs/hooks/useGetMaintenanceCategories";
+import { useCreateMaintenanceCategory } from "@/features/repairs/hooks/useCreateMaintenanceCategory";
 import useGetDeviceRepairs from "@/features/repairs/hooks/useGetDeviceRepairs";
 import { useUpdateRepair } from "@/features/repairs/hooks/useUpdateRepair";
 import { useDeleteRepair } from "@/features/repairs/hooks/useDeleteReapir";
@@ -13,34 +15,33 @@ import { hasActionPermission } from "@/shared/permisseions/permissionUtils";
 import { formatToPersianDate } from "@/utils/formatToPersianDate";
 import toast from "react-hot-toast";
 
-const REPAIR_OPTIONS = [
-  { id: "power_supply", label: "تعویض منبع تغذیه" },
-  { id: "board_repair", label: "تعمیر برد اصلی" },
-  { id: "wiring_check", label: "بررسی و اصلاح سیم‌کشی" },
-  { id: "display_fix", label: "اصلاح نمایشگر/LED" },
-  { id: "sensor_replacement", label: "تعویض سنسورها" },
-  { id: "other", label: "سایر موارد (تایپ دستی)" },
-];
-
 interface RepairItem {
   id: string;
   title: string;
-  description: string;
+  description: string | null;
   created_at: string;
   resolved: boolean;           // اضافه شد
   resolution_note?: string;    // اضافه شد
+  maintenance_category_name?: string | null;
 }
 
 const RepairsTab: React.FC = () => {
   const { deviceId } = useParams();
   const { createRepair, isCreatingRepair } = useCreateRepair();
   const { deviceRepairs, isgettingDeviceRepairs } = useGetDeviceRepairs(deviceId as string);
+  const { maintenanceCategories, isGettingMaintenanceCategories } =
+    useGetMaintenanceCategories();
+  const { createMaintenanceCategory, isCreatingMaintenanceCategory } =
+    useCreateMaintenanceCategory();
   const { updateRepair, isUpdaingRepair } = useUpdateRepair();
   const { deleteRepair, isDeletingRepair } = useDeleteRepair();
   const { isgettingprofile, profile } = UseGetProfile();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [maintenanceCategoryId, setMaintenanceCategoryId] = useState("");
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -53,33 +54,59 @@ const RepairsTab: React.FC = () => {
 
   const repairsList = deviceRepairs?.items || [];
 
-  const handleAddRepair = async () => {
+  const handleAddRepair = () => {
     if (!hasActionPermission(profile?.role, 'canEdit')) {
       toast.error("شما دسترسی ثبت تعمیر را ندارید");
       return;
     }
-    if (!title.trim() || !description.trim()) {
-      toast.error("لطفاً عنوان و توضیحات را وارد کنید");
+    if (!title.trim()) {
+      toast.error("لطفاً عنوان تعمیر را وارد کنید");
       return;
     }
-    try {
-      await createRepair({
+    if (!maintenanceCategoryId) {
+      toast.error("لطفاً نوع تعمیر را انتخاب کنید");
+      return;
+    }
+
+    createRepair(
+      {
         device_id: deviceId as string,
+        maintenance_category_id: maintenanceCategoryId,
         title: title.trim(),
-        description: description.trim(),
-      });
-      setTitle("");
-      setDescription("");
-      toast.success("رکورد تعمیر با موفقیت ثبت شد");
-    } catch (error) {
-      toast.error("خطا در ثبت تعمیر");
+        description: description.trim() || null,
+      },
+      {
+        onSuccess: () => {
+          setTitle("");
+          setDescription("");
+          setMaintenanceCategoryId("");
+        },
+      },
+    );
+  };
+
+  const handleAddCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) {
+      toast.error("نام نوع تعمیر را وارد کنید");
+      return;
+    }
+
+    try {
+      const category = await createMaintenanceCategory({ name });
+      setMaintenanceCategoryId(category.id);
+      setNewCategoryName("");
+      setIsAddingCategory(false);
+      toast.success("نوع تعمیر با موفقیت اضافه شد");
+    } catch {
+      toast.error("خطا در افزودن نوع تعمیر");
     }
   };
 
   const startEdit = (item: RepairItem) => {
     setEditingId(item.id);
     setEditTitle(item.title);
-    setEditDescription(item.description);
+    setEditDescription(item.description ?? "");
   };
 
   const handleUpdate = async (id: string) => {
@@ -125,7 +152,7 @@ const RepairsTab: React.FC = () => {
             <Wrench size={16} className="text-blue-500" /> ثبت تعمیر جدید
           </h4>
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
-            <div className="sm:col-span-4">
+            <div className="sm:col-span-3">
               <label className="block text-xs text-gray-500 mb-1">عنوان تعمیر</label>
               <input 
                 value={title} 
@@ -134,29 +161,71 @@ const RepairsTab: React.FC = () => {
                 className="w-full p-2 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            <div className="sm:col-span-5">
-              <label className="block text-xs text-gray-500 mb-1">توضیحات / نوع تغییر</label>
-              {description === "سایر موارد (تایپ دستی)" ? (
-                <input 
-                  value={description} 
-                  onChange={(e) => setDescription(e.target.value)} 
-                  placeholder="توضیحات را بنویسید..." 
-                  className="w-full px-2 py-1.5 h-10 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              ) : (
-                <select 
-                  value={description} 
-                  onChange={(e) => setDescription(e.target.value)} 
-                  className="w-full px-2 py-1.5 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            <div className="sm:col-span-4">
+              <label className="block text-xs text-gray-500 mb-1">نوع تعمیر</label>
+              <div className="flex gap-2">
+                <select
+                  value={maintenanceCategoryId}
+                  onChange={(e) => setMaintenanceCategoryId(e.target.value)}
+                  disabled={isGettingMaintenanceCategories}
+                  className="min-w-0 flex-1 px-2 py-1.5 h-10 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-gray-50"
                 >
-                  <option value="">انتخاب کنید...</option>
-                  {REPAIR_OPTIONS.map(opt => (
-                    <option key={opt.id} value={opt.label}>{opt.label}</option>
-                  ))}
+                  <option value="">
+                    {isGettingMaintenanceCategories ? "در حال دریافت..." : "انتخاب نوع تعمیر..."}
+                  </option>
+                  {(maintenanceCategories?.items ?? [])
+                    .filter((category: any) => category.is_active)
+                    .map((category: any) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
                 </select>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingCategory((isAdding) => !isAdding)}
+                  className="flex h-10 shrink-0 items-center gap-1 rounded-lg border border-blue-100 bg-blue-50 px-3 text-xs font-medium text-blue-600 hover:bg-blue-100"
+                >
+                  <Plus size={14} />
+                  نوع جدید
+                </button>
+              </div>
+              {isAddingCategory && (
+                <div className="mt-2 flex gap-2">
+                  <input
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    maxLength={128}
+                    placeholder="نام نوع تعمیر جدید"
+                    className="min-w-0 flex-1 p-2 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCategory}
+                    disabled={isCreatingMaintenanceCategory}
+                    className="shrink-0 rounded-lg bg-emerald-600 px-3 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {isCreatingMaintenanceCategory ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      "افزودن"
+                    )}
+                  </button>
+                </div>
               )}
             </div>
             <div className="sm:col-span-3">
+              <label className="block text-xs text-gray-500 mb-1">توضیحات (اختیاری)</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                maxLength={2000}
+                rows={2}
+                placeholder="توضیحات تعمیر..."
+                className="w-full px-2 py-1.5 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              />
+            </div>
+            <div className="sm:col-span-2">
               <button 
                 onClick={handleAddRepair}
                 disabled={isCreatingRepair}
@@ -178,6 +247,11 @@ const RepairsTab: React.FC = () => {
               <div className="flex-1 space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold text-gray-800">{item.title}</span>
+                  {item.maintenance_category_name && (
+                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-600">
+                      {item.maintenance_category_name}
+                    </span>
+                  )}
 
                   <span className="text-[10px] text-slate-400">{formatToPersianDate(item.created_at)}</span>
                   {item.resolved && (

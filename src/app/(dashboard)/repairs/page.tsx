@@ -16,16 +16,19 @@ import UseGetProfile from "@/shared/hooks/useGetProfile";
 import { hasActionPermission } from "@/shared/permisseions/permissionUtils"; 
 import UseGetLocations from "@/shared/hooks/useGetLocations";
 import UseGetAllSection from "@/shared/hooks/useGetAllSections";
+import useGetMaintenanceCategories from "@/features/repairs/hooks/useGetMaintenanceCategories";
 
 interface RepairItem {
   id: string;
   title: string;
-  description: string;
+  description: string | null;
   created_at: string;
   resolved: boolean;
   location_id: string; 
   section_id: string; 
   device_code: string; 
+  maintenance_category_id?: string | null;
+  maintenance_category_name?: string | null;
 }
 
 export default function Page() {
@@ -33,6 +36,7 @@ export default function Page() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filterValues, setFilterValues] = useState({
     device_id: "all",
+    category_id: "all",
     resolved: "all",
     sort: "none",
   });
@@ -45,6 +49,8 @@ export default function Page() {
   const repairsQuery = useMemo(
     () => ({
       device_id: filterValues.device_id === "all" ? undefined : filterValues.device_id,
+      category_id:
+        filterValues.category_id === "all" ? undefined : filterValues.category_id,
       resolved:
         filterValues.resolved === "all" ? undefined : filterValues.resolved === "resolved",
       sort: filterValues.sort === "device" ? "device" : undefined,
@@ -58,6 +64,8 @@ export default function Page() {
     queryKey: ["maintenance-device-filter-options"],
     queryFn: () => getAllDevicesListApi({}),
   });
+  const { maintenanceCategories, isGettingMaintenanceCategories } =
+    useGetMaintenanceCategories(true);
   const { isResolvingRepair, resolveRepair } = useResolveRepair();
   const { locations, isGettingLocations } = UseGetLocations();
   const { sectionsList, isGettingSectionsList } = UseGetAllSection();
@@ -81,7 +89,12 @@ export default function Page() {
   };
 
   const handleClearFilters = () => {
-    setFilterValues({ device_id: "all", resolved: "all", sort: "none" });
+    setFilterValues({
+      device_id: "all",
+      category_id: "all",
+      resolved: "all",
+      sort: "none",
+    });
     setCurrentPage(1);
   };
 
@@ -112,7 +125,13 @@ export default function Page() {
     setIsShowModal(true);
   };
 
-  if (isgettingRepairs || isgettingprofile || isGettingLocations || isGettingSectionsList) {
+  if (
+    isgettingRepairs ||
+    isgettingprofile ||
+    isGettingLocations ||
+    isGettingSectionsList ||
+    isGettingMaintenanceCategories
+  ) {
     return (
       <div className="flex justify-center py-20">
         <Loader2 className="animate-spin text-blue-500" size={32} />
@@ -141,7 +160,7 @@ export default function Page() {
 
         {isFilterOpen && (
           <div className="flex flex-col gap-3 p-4 bg-gray-50 border border-gray-100 rounded-xl animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
               <SelectInput
                 title="دستگاه"
                 name="device_id"
@@ -154,6 +173,19 @@ export default function Page() {
                     name: device.device_code
                       ? `${device.name} (${device.device_code})`
                       : device.name,
+                  })),
+                ]}
+              />
+              <SelectInput
+                title="نوع تعمیر"
+                name="category_id"
+                filterValues={filterValues}
+                handleChange={handleFilterChange}
+                options={[
+                  { id: "all", name: "همه نوع‌ها" },
+                  ...(maintenanceCategories?.items ?? []).map((category: any) => ({
+                    id: category.id,
+                    name: category.name,
                   })),
                 ]}
               />
@@ -212,6 +244,11 @@ export default function Page() {
                     {item.device_code && (
                       <div className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-mono uppercase">
                         {item.device_code}
+                      </div>
+                    )}
+                    {item.maintenance_category_name && (
+                      <div className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
+                        {item.maintenance_category_name}
                       </div>
                     )}
                   </div>
