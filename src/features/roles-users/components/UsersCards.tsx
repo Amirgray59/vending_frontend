@@ -24,7 +24,7 @@ const UserCards = () => {
       managers: items.filter(
         (u: any) =>
           u.is_active &&
-          (u.role === "location_manager" || u.role === "super_admin")
+          (u.role === "technical_staff" || u.role === "super_admin")
       ).length,
       
       activeUsers: items.filter((u: any) => u.is_active === true).length,
@@ -44,7 +44,7 @@ const UserCards = () => {
     },
     {
       id: 2,
-      title: "مدیران",
+      title: "مدیر کل و نیروی فنی",
       value: stats.managers,
       iconType: "shield",
       bgColor: "bg-[#F5F3FF]",

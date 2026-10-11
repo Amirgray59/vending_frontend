@@ -5,7 +5,11 @@ import { addScheduleApi } from "../api/schedulesApi";
 export function useAddSchedule() {
   const queryClient = useQueryClient(); // دسترسی به کلاینت برای مدیریت کش
 
-  const { isPending: isAddingschedule, mutate: addSchedule } = useMutation({
+  const {
+    isPending: isAddingschedule,
+    mutate: addSchedule,
+    mutateAsync: addScheduleAsync,
+  } = useMutation({
     mutationFn: addScheduleApi,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["device-schedules"] });
@@ -17,5 +21,5 @@ export function useAddSchedule() {
     },
   });
 
-  return { isAddingschedule, addSchedule };
+  return { isAddingschedule, addSchedule, addScheduleAsync };
 }

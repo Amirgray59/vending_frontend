@@ -2,14 +2,23 @@ import clientApi from "../clientApi/clientApi";
 
 
 
-export async function updateUserApi(data:any){
-    const newData={
-        ...data.data,
-        full_name:data.data.username
+type UpdateUserRequest = {
+    id: string;
+    data: Record<string, unknown>;
+};
+
+export async function updateUserApi({ id, data }: UpdateUserRequest) {
+    const payload: Record<string, unknown> = { ...data };
+
+    if (typeof payload.username === "string") {
+        payload.full_name = payload.username.trim();
+        delete payload.username;
     }
-    console.log(newData);
-    
-    return await clientApi.patch(`/users/${data.id}`,newData).then(({data})=>data);
+    if (typeof payload.phone === "string") payload.phone = payload.phone.trim();
+
+    return await clientApi
+        .patch(`/users/${encodeURIComponent(id)}`, payload)
+        .then(({ data: responseData }) => responseData);
 }
 
 

@@ -66,5 +66,13 @@ export async function getDeviceDetailApi(id: string) {
 }
 
 export async function deleteDeviceWeeklyScheduleApi(id: string) {
-  return await clientApi.delete(`/schedules/devices/${id}`).then(({ data }) => data);
+  const { data: schedules } = await clientApi.get<Array<{ id: string }>>(
+    `/devices/${encodeURIComponent(id)}/schedules`,
+  );
+
+  return await Promise.all(
+    schedules.map(({ id: scheduleId }) =>
+      clientApi.delete(`/schedules/${encodeURIComponent(scheduleId)}`),
+    ),
+  );
 }

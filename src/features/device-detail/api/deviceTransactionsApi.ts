@@ -5,6 +5,10 @@ export async function getDeviceTransactionsApi(deviceId:string){
     return await clientApi.get(`devices/${deviceId}/transactions`).then(({data})=>data)
 }
 
+export async function getTransactionsSummaryApi() {
+    return await clientApi.get("/transactions/summary").then(({ data }) => data);
+}
+
 export async function getDeviceInventoryTransActionsApi(deviceId:string){
     const pageSize = 200;
     const requestPage = (page: number) =>

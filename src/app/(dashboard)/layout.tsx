@@ -1,6 +1,7 @@
 import Footer from "@/components/layout/Footer";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
+import OperatorAccessGate from "@/components/layout/OperatorAccessGate";
 
 interface layoutProps {
   children: React.ReactNode;
@@ -14,7 +15,9 @@ export default function layout({ children }: layoutProps) {
       </div>
       <div className="col-span-12 md:col-span-10 ">
         <Header />
-        <main className="min-h-[440]">{children}</main>
+        <main className="min-h-[440]">
+          <OperatorAccessGate>{children}</OperatorAccessGate>
+        </main>
         <Footer />
       </div>
     </section>

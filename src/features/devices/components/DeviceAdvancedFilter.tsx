@@ -43,11 +43,11 @@ export default function DevicesAdvancedFilter<T>({
   const handleExportCSV = async () => {
     try {
       const params = {
-        places:
+        location_id:
           filters.places === "all" || filters.places === "همه مجموعه ها"
             ? undefined
             : filters.places,
-        sections:
+        section_id:
           filters.sections === "all" || filters.sections === "همه بخش ها"
             ? undefined
             : filters.sections,

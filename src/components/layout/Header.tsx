@@ -20,6 +20,7 @@ import Link from "next/link";
 import { LuWrench } from "react-icons/lu";
 import { CiLogout } from "react-icons/ci";
 import UseGetProfile from "@/shared/hooks/useGetProfile";
+import { ROLE_OPTIONS } from "@/shared/permisseions/roles";
 
 const links = [
   { id: 1, title: "داشبورد", href: "/dashboard", icon: <IoHome /> },
@@ -31,24 +32,19 @@ const links = [
   { id: 8, title: "تعمیرات", href: "/repairs", icon: <LuWrench /> },
 ];
 
-const roleOptions = [
-  { id: "1", label: "مدیر کل", value: "super_admin" },
-  { id: "2", label: "پشتیبانی فنی ", value: "technical_support" },
-  { id: "3", label: "مدیر مجموعه", value: "location_manager" },
-  { id: "4", label: "پشتیبانی مرکزی", value: "central_viewer" },
-  { id: "5", label: "حسابدار", value: "accounting" },
-  { id: "6", label: "اپراتور", value: "operator" },
-];
-
 const Header = () => {
   const [isShow, setIsShow] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const pathName = usePathname();
   const router = useRouter();
   const { isgettingprofile, profile } = UseGetProfile();
+  const visibleLinks =
+    isgettingprofile || !profile || profile.role === "operator"
+      ? links.filter((item) => item.href === "/devices")
+      : links;
 
   const getRoleLabel = (roleValue: string) => {
-    const role = roleOptions.find((opt) => opt.value === roleValue);
+    const role = ROLE_OPTIONS.find((opt) => opt.value === roleValue);
     return role ? role.label : "کاربر";
   };
 
@@ -134,7 +130,7 @@ const Header = () => {
               <nav className="px-2">
                 <ul className="flex flex-col h-full">
                   <div className="flex-grow">
-                    {links.map((item) => (
+                    {visibleLinks.map((item) => (
                       <Link key={item.id} href={item.href} className="my-2" onClick={() => setIsShow(false)}>
                         <li className={`py-4 flex justify-between px-3 transition-colors ${pathName.startsWith(item.href) ? "bg-linear-to-r from-[#023BA0] to-[#033BA1] rounded-lg" : "hover:bg-white/10 rounded-lg"}`}>
                           <span className="flex text-xs items-center gap-x-4">

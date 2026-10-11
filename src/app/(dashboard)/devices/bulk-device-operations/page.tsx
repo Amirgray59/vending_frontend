@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import { useState } from "react";
 import PageTitle from "@/components/shared/PageTitle";
-import DevicesFilterContainer from "@/features/devices/components/DevicesFilterContainer";
+import { useQuery } from "@tanstack/react-query";
+import { getAllDevicesListApi } from "@/shared/api/device";
 import Skeleton from "react-loading-skeleton";
 import { LuPlus, LuTrash2 } from "react-icons/lu";
 import { toast } from "react-hot-toast";
 import { LucideCheckCircle } from "lucide-react";
-import UseGetDevicesList from "@/shared/hooks/useGetDevicesList";
 import { useAddSchedule } from "@/features/control-scheduling/hooks/useAddSchedule";
 import { useDeleteDeviceWeeklySchedules } from "@/shared/hooks/usedeleteDeviceWeeklyScheduleApi";
 
@@ -61,67 +61,22 @@ const DeviceMiniIcon = () => (
 );
 
 export default function BulkSchedulingPage() {
-  const initialFilters = {
-    places: "همه مجموعه ها",
-    sections: "همه بخش ها",
-    alertType: "وضعیت اتصال ",
-    status: "همه وضعیت ها",
-    inventory: "وضعیت موجودی",
-    search: "",
-  };
-
-  const [filters, setFilterValues] = useState(initialFilters);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isApplyingSchedule, setIsApplyingSchedule] = useState(false);
   const [scheduleTemplate, setScheduleTemplate] = useState<DaySchedule[]>(
     DISPLAY_DAYS.map((day) => ({ day, active: false, schedules: [] })),
   );
 
-  const { devicesList, isGettingDevicesList } = UseGetDevicesList();
-  const { addSchedule, isAddingschedule } = useAddSchedule();
-  const {deleteDeviceSchedule,isDeletingDeviceScedule}=useDeleteDeviceWeeklySchedules()
+  const { data: devicesList, isLoading: isGettingDevicesList } = useQuery({
+    queryKey: ["bulk-scheduling-devices"],
+    queryFn: () => getAllDevicesListApi({ claimed: true }),
+  });
+  const schedulableDevices = (devicesList?.items ?? []).filter(
+    (device: any) => device.status !== "pending",
+  );
+  const { addScheduleAsync } = useAddSchedule();
+  const { deleteDeviceSchedule } = useDeleteDeviceWeeklySchedules();
   
-
-  // --- فیلترینگ داده‌ها ---
-  const filteredData = useMemo(() => {
-    if (!devicesList?.items) return [];
-    return devicesList.items.filter((device: any) => {
-      const searchMatch =
-        !filters.search ||
-        device.name?.toLowerCase().includes(filters.search.toLowerCase()) ||
-        device.device_code
-          ?.toLowerCase()
-          .includes(filters.search.toLowerCase());
-      const locationMatch =
-        filters.places === "all" ||
-        filters.places === "همه مجموعه ها" ||
-        device.location_id === filters.places;
-      const sectionMatch =
-        filters.sections === "all" ||
-        filters.sections === "همه بخش ها" ||
-        device.section_id === filters.sections;
-      const statusMatch =
-        !filters.status ||
-        filters.status === "all" ||
-        filters.status === "همه وضعیت ها" ||
-        device.status === filters.status;
-      const connectionMatch =
-        !filters.alertType ||
-        filters.alertType === "وضعیت اتصال " ||
-        String(device.power_on) === filters.alertType;
-      const inventoryMatch =
-        !filters.inventory ||
-        filters.inventory === "وضعیت موجودی" ||
-        device.inventory_status === filters.inventory;
-      return (
-        searchMatch &&
-        locationMatch &&
-        sectionMatch &&
-        statusMatch &&
-        connectionMatch &&
-        inventoryMatch
-      );
-    });
-  }, [devicesList, filters]);
 
   // --- توابع مدیریت انتخاب دستگاه‌ها ---
   const toggleDevice = (id: string) => {
@@ -133,8 +88,12 @@ export default function BulkSchedulingPage() {
   };
 
   const toggleAll = () => {
-    if (selectedIds.size === filteredData.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(filteredData.map((d: any) => d.id)));
+    const allSelected =
+      schedulableDevices.length > 0 &&
+      selectedIds.size === schedulableDevices.length;
+
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(schedulableDevices.map((device: any) => device.id)));
   };
 
   // --- توابع مدیریت زمان‌بندی ---
@@ -222,37 +181,25 @@ export default function BulkSchedulingPage() {
       return;
     }
 
+    setIsApplyingSchedule(true);
     try {
-      // ایجاد یک آرایه از تمام عملیات‌ها برای هر دستگاه
-      const tasks = deviceIds.map(async (deviceId) => {
-        try {
-          // ۱. ابتدا پاک‌سازی کل زمان‌بندی‌های هفتگی این دستگاه
-          await deleteDeviceSchedule(deviceId);
+      await Promise.all(deviceIds.map((deviceId) => deleteDeviceSchedule(deviceId)));
 
-          // ۲. سپس ارسال تمام اسلات‌های جدید برای این دستگاه به صورت موازی
-          const schedulePromises = activeSchedules.map((slot) => {
-            const [hour, minute] = slot.time.split(":").map(Number);
-            return addSchedule({
-              deviceId: deviceId,
-              payload: {
-                day_of_week: slot.day_of_week,
-                action: slot.action,
-                hour: isNaN(hour) ? 0 : hour,
-                minute: isNaN(minute) ? 0 : minute,
-              },
-            });
+      const scheduleTasks = deviceIds.flatMap((deviceId) =>
+        activeSchedules.map((slot) => {
+          const [hour, minute] = slot.time.split(":").map(Number);
+          return addScheduleAsync({
+            deviceId,
+            payload: {
+              day_of_week: slot.day_of_week,
+              action: slot.action,
+              hour: Number.isNaN(hour) ? 0 : hour,
+              minute: Number.isNaN(minute) ? 0 : minute,
+            },
           });
-
-          // اجرای تمام addScheduleها برای این دستگاه به صورت همزمان
-          await Promise.all(schedulePromises);
-        } catch (error) {
-          console.error(`Error updating device ${deviceId}:`, error);
-          throw error; // خطا را به لایه بالاتر می‌فرستیم تا در catch کلی گرفته شود
-        }
-      });
-
-      // اجرای تمام عملیات‌های مربوط به تمام دستگاه‌ها به صورت موازی
-      await Promise.all(tasks);
+        }),
+      );
+      await Promise.all(scheduleTasks);
 
       toast.success(
         `زمان‌بندی‌های قبلی پاک و تنظیمات جدید برای ${deviceIds.length} دستگاه اعمال شد`,
@@ -260,10 +207,11 @@ export default function BulkSchedulingPage() {
       setSelectedIds(new Set());
     } catch (error) {
       console.error("Bulk Update Error:", error);
-      toast.error("خطایی در هنگام به‌روزرسانی برخی از دستگاه‌ها رخ داد");
+      toast.error("خطایی در حذف یا اعمال زمان‌بندی دستگاه‌ها رخ داد");
+    } finally {
+      setIsApplyingSchedule(false);
     }
   };
-
   if (isGettingDevicesList) {
   return (
     <div className="flex items-center w-full pt-24 justify-center">
@@ -284,36 +232,11 @@ export default function BulkSchedulingPage() {
   );
 }
 
-  if (
-    // devicesList?.items.filter((item: any) => item.ststus === "active")
-    //   .length === 0
-    false
-  )
-    return (
-      <div className=" flex items-center w-full pt-24 justify-center">
-        <div className=" border border-gray-100 border-dashed rounded-lg p-24">
-          <p>هیج دستگاه فعالی برای زمان بندی وجود ندارد</p>
-        </div>
-      </div>
-    );
-
   return (
     <section className="p-4" dir="rtl">
       <PageTitle
         title="آپدیت گروهی زمان‌بندی"
         description="داشبورد / زمان‌بندی گروهی"
-      />
-
-      <DevicesFilterContainer
-        className="grid grid-cols-12 bg-white gap-6 sm:gap-4 mt-4 p-0 sm:p-4"
-        filterValues={filters}
-        handleInputChange={(e: any) =>
-          setFilterValues((prev) => ({
-            ...prev,
-            [e.target.name]: e.target.value,
-          }))
-        }
-        onReset={() => setFilterValues(initialFilters)}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
@@ -331,13 +254,16 @@ export default function BulkSchedulingPage() {
               // حالت نمایش دکمه
               <button
                 onClick={toggleAll}
+                disabled={schedulableDevices.length === 0}
                 className={`text-sm ${
-                  selectedIds.size === filteredData.length
+                  schedulableDevices.length > 0 &&
+                  selectedIds.size === schedulableDevices.length
                     ? "bg-red-500"
                     : "bg-blue-600"
                 } text-white py-1 px-3 rounded-sm font-medium transition-colors`}
               >
-                {selectedIds.size === filteredData.length
+                {schedulableDevices.length > 0 &&
+                  selectedIds.size === schedulableDevices.length
                   ? "لغو انتخاب همه"
                   : "انتخاب همه"}
               </button>
@@ -360,12 +286,9 @@ export default function BulkSchedulingPage() {
                 <tbody className="text-center">
                   {(() => {
                     // ۱. ابتدا لیست را فیلتر می‌کنیم تا دستگاه‌های pending حذف شوند
-                    const activeDevices = filteredData.filter(
-                      (item: any) => item.status === "pending",
-                    );
 
                     // ۲. اگر لیستی وجود نداشت، متن جایگزین را نمایش می‌دهیم
-                    if (activeDevices.length === 0) {
+                    if (schedulableDevices.length === 0) {
                       return (
                         <tr className=" mt-8">
                           <td
@@ -379,7 +302,7 @@ export default function BulkSchedulingPage() {
                     }
 
                     // ۳. اگر دستگاه‌ها وجود داشتند، آن‌ها را مپ می‌کنیم
-                    return activeDevices.map((device: any) => (
+                    return schedulableDevices.map((device: any) => (
                       <tr
                         key={device.id}
                         className={`transition-colors ${selectedIds.has(device.id) ? "bg-blue-50" : "bg-white hover:bg-slate-50"}`}
@@ -500,7 +423,7 @@ export default function BulkSchedulingPage() {
             </div>
             <button
               onClick={handleBulkUpdate}
-              disabled={selectedIds.size === 0 || isAddingschedule}
+              disabled={selectedIds.size === 0 || isApplyingSchedule}
               className={`w-full mt-6 py-3 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 ${
                 selectedIds.size > 0
                   ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md"
@@ -508,7 +431,7 @@ export default function BulkSchedulingPage() {
               }`}
             >
               <LucideCheckCircle size={18} />
-              {isAddingschedule
+              {isApplyingSchedule
                 ? "در حال ارسال..."
                 : `اعمال برای ${selectedIds.size} دستگاه`}
             </button>

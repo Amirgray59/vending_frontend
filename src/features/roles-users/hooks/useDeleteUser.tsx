@@ -5,11 +5,11 @@ import { deleteUserApi } from "../api/uers";
 
 export function useDeleteUser() {
   const queryClient = useQueryClient();
-  const { isPending: isDeletingUser, mutate: deleteUser } = useMutation({
+  const { isPending: isDeletingUser, mutateAsync: deleteUser } = useMutation({
     mutationFn: deleteUserApi,
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["users"] });
-      toast.success("کاربر  با موفقیت حذف  ثبت شد");
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("کاربر با موفقیت غیرفعال شد");
     },
     onError: (err) => {
       toast.error("مشکلی در حذف کاربر  پیش امده است");

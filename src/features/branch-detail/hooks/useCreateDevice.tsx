@@ -10,7 +10,7 @@ export function useCreateDevice() {
       mutationFn: createDeviceApi,
       onSuccess: (data) => {
         queryClient.invalidateQueries({queryKey:["devices-section"]})
-        queryClient.invalidateQueries({queryKey:["unclaimed-devices"]})
+        queryClient.invalidateQueries({queryKey:["pending-claim-devices"]})
         queryClient.invalidateQueries({queryKey:["devices"]})
         toast.success("دستگاه جدید با موفقیت ثبت شد");
       },

@@ -21,6 +21,7 @@ export const hasMinLevel = (role: string | undefined, minLevel: PermissionLevel)
 };
 
 export const canSeeFinancials = (role: string | undefined) => {
+  if (role === 'operator') return false;
   // لول 4 (حسابدار) و لول‌های بالاتر از آن (1, 2, 3) اجازه دیدن مالی را دارند
   return hasMinLevel(role, PermissionLevel.LEVEL_4);
 };

@@ -7,7 +7,13 @@ import { IoLocationOutline, IoWifi } from "react-icons/io5";
 import { LuWallet } from "react-icons/lu";
 import { getDeviceStatusInfo } from "@/utils/deviceStatus";
 
-const VendingMachineCard = () => {
+interface VendingMachineCardProps {
+  showFinancials?: boolean;
+}
+
+const VendingMachineCard = ({
+  showFinancials = true,
+}: VendingMachineCardProps) => {
   const { deviceId } = useParams();
   const { device, isGettingDevice } = useGetDeviceDetail(deviceId as string);
 
@@ -108,17 +114,19 @@ const VendingMachineCard = () => {
         </div>
 
         {/* بخش ششم: درآمد امروز */}
-        <div className="flex items-center justify-center gap-4 w-full md:w-auto py-4 md:py-0 md:px-4">
-          <div className="bg-purple-50 p-2.5 rounded-xl text-purple-600">
-            <LuWallet />
+        {showFinancials && (
+          <div className="flex items-center justify-center gap-4 w-full md:w-auto py-4 md:py-0 md:px-4">
+            <div className="bg-purple-50 p-2.5 rounded-xl text-purple-600">
+              <LuWallet />
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <span className="text-gray-400 text-xs">درآمد امروز</span>
+              <span className="text-gray-800 font-bold text-xs">
+                {formatNumber(device.today_income)} تومان
+              </span>
+            </div>
           </div>
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-gray-400 text-xs">درآمد امروز</span>
-            <span className="text-gray-800 font-bold text-xs">
-              {formatNumber(device.today_income)} تومان
-            </span>
-          </div>
-        </div>
+        )}
 
         {/* بخش هفتم: موجودی فعلی */}
         <div className="flex items-center justify-center gap-4 w-full md:w-auto pt-4 md:pt-0 md:pr-6">

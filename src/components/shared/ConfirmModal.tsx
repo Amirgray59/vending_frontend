@@ -5,18 +5,22 @@ interface ConfirmModalProps {
   onClose: () => void;
   open: boolean;
   title: string;
-  handleConfirm:()=>void
+  handleConfirm: () => void;
+  closeOnConfirm?: boolean;
+  isConfirming?: boolean;
 }
 
 export default function ConfirmModal({
   onClose,
   open,
   title,
-  handleConfirm
+  handleConfirm,
+  closeOnConfirm = true,
+  isConfirming = false,
 }: ConfirmModalProps) {
-  const handleClick=()=>{
-    onClose()
-    handleConfirm()
+  const handleClick = () => {
+    if (closeOnConfirm) onClose();
+    handleConfirm();
   }
   return (
     <Modal onClose={onClose} open={open} title={title}>
@@ -28,12 +32,14 @@ export default function ConfirmModal({
       <div className="w-full flex items-center justify-center gap-4">
         <button
           onClick={handleClick}
-          className=" py-2 w-full rounded-lg bg-blue-600 text-white font-semibold"
+          disabled={isConfirming}
+          className="py-2 w-full rounded-lg bg-blue-600 text-white font-semibold disabled:cursor-not-allowed disabled:opacity-50"
         >
           تایید
         </button>
         <button
           onClick={onClose}
+          disabled={isConfirming}
           className=" py-2 w-full rounded-lg bg-gray-100 text-gary-800 font-semibold"
         >
           انصراف

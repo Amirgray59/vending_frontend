@@ -95,7 +95,7 @@ export default function PermissionPicker() {
       ? locations
       : (locations as any).items || [];
 
-    if (manager.role === "location_manager") {
+    if (manager.role === "technical_staff") {
       const allowedIds =
         manager?.allowed_location_location_ids ||
         manager?.allowed_location_ids ||

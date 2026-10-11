@@ -16,6 +16,7 @@ import {
 } from "react-icons/io5";
 import { LuWrench } from "react-icons/lu";
 import { CiLogout } from "react-icons/ci";
+import UseGetProfile from "@/shared/hooks/useGetProfile";
 
 const links = [
   { id: 1, title: "داشبورد", href: "/dashboard", icon: <IoHome /> },
@@ -31,6 +32,11 @@ export default function Sidebar() {
   const pathName = usePathname();
   const router = useRouter();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const { profile, isgettingprofile } = UseGetProfile();
+  const visibleLinks =
+    isgettingprofile || !profile || profile.role === "operator"
+      ? links.filter((item) => item.href === "/devices")
+      : links;
 
   const { alertList, isGettingAlertsList } = useGetAlertList();
   const alertCount = alertList?.items?.filter((item:any)=>item.resolved===false).length || 0;
@@ -62,7 +68,7 @@ export default function Sidebar() {
         <nav className="px-2">
           <ul className="flex flex-col h-full">
             <div className="flex-grow">
-              {links.map((item) => (
+              {visibleLinks.map((item) => (
                 <Link key={item.id} href={item.href} className="my-4">
                   <li
                     className={`py-4 flex justify-between px-3 transition-colors cursor-pointer ${

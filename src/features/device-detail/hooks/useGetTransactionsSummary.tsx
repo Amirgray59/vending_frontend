@@ -5,7 +5,7 @@ export default function useGetTransactionsSummary() {
   const { data: transactionsSummary, isLoading: isgettingTransactionsSummary } =
     useQuery({
       queryKey: ["transactions-summary"],
-      queryFn: getTransactionsSummaryApi,
+      queryFn: () => getTransactionsSummaryApi(),
     });
   return { transactionsSummary, isgettingTransactionsSummary };
 }

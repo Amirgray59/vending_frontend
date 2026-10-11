@@ -27,6 +27,15 @@ interface HandleChangeArg {
   };
 }
 
+const toPercentage = (
+  threshold: number | null | undefined,
+  capacity: number | null | undefined,
+) => {
+  if (threshold == null || capacity == null || capacity <= 0) return "";
+
+  return Number(((threshold / capacity) * 100).toFixed(1)).toString();
+};
+
 const InventoryTab = () => {
   // اضافه شدن حالت 'capacity' به پنل‌ها
   const [activePanel, setActivePanel] = useState<
@@ -52,16 +61,24 @@ const InventoryTab = () => {
   const { editDevice, isEditingDevice } = useEditDevice();
   const { device, isGettingDevice } = useGetDeviceDetail(deviceId as string);
   const { profile } = UseGetProfile();
+  const isOperator = profile?.role === "operator";
+  const canAddInventory =
+    isOperator || hasActionPermission(profile?.role, "canCreate");
+  const inventoryCapacity = device?.inventory_capacity;
+  const yellowThreshold = device?.inventory_yellow_threshold;
+  const redThreshold = device?.inventory_red_threshold;
 
   useEffect(() => {
-    if (!isGettingDevice) {
-      setAlertValues({
-        inventory_yellow_threshold: device.inventory_yellow_threshold,
-        inventory_red_threshold: device.inventory_red_threshold,
-      });
-      setCapacityValue(device.inventory_capacity || ""); // مقدار اولیه ظرفیت
-    }
-  }, []);
+    if (isGettingDevice) return;
+
+    setAlertValues({
+      inventory_yellow_threshold: toPercentage(yellowThreshold, inventoryCapacity),
+      inventory_red_threshold: toPercentage(redThreshold, inventoryCapacity),
+    });
+    setCapacityValue(
+      inventoryCapacity == null ? "" : String(inventoryCapacity),
+    );
+  }, [inventoryCapacity, isGettingDevice, redThreshold, yellowThreshold]);
 
   const handleChange = (e: HandleChangeArg) => {
     setChangeValue({ ...changeValue, [e.target.name]: e.target.value });
@@ -77,8 +94,9 @@ const InventoryTab = () => {
       toast.error("این عملیات برای دستگاه های غیر فعال امکان پذیر نیست");
       return;
     }
-    if (!capacityValue) {
-      toast.error("لطفاً مقدار ظرفیت را وارد کنید");
+    const numericCapacity = Number(capacityValue);
+    if (!Number.isInteger(numericCapacity) || numericCapacity <= 0) {
+      toast.error("لطفاً ظرفیت دستگاه را به صورت عددی بزرگ‌تر از صفر وارد کنید");
       return;
     }
     try {
@@ -86,7 +104,7 @@ const InventoryTab = () => {
         {
           deviceId: deviceId as string,
           payload: {
-            inventory_capacity: +capacityValue,
+            inventory_capacity: numericCapacity,
           },
         },
         {
@@ -104,6 +122,11 @@ const InventoryTab = () => {
   const handleAddInventory = () => {
     const numericValue = +changeValue.count;
     const currentInventory = device?.inventory_level || 0;
+
+    if (isOperator && changeValue.operator !== "increase") {
+      toast.error("اپراتور فقط می‌تواند موجودی را افزایش دهد");
+      return;
+    }
 
     if (device?.is_active === false) {
       toast.error("این عملیات برای دستگاه  های غیر فعال امکان پذیر نیست");
@@ -159,20 +182,40 @@ const InventoryTab = () => {
       toast.error("این عملیات برای دستگاه  های غیر فعال امکان پذیر نیست");
       return;
     }
-    if (
-      !alertValues.inventory_yellow_threshold ||
-      !alertValues.inventory_red_threshold
-    ) {
-      toast.error("لطفاً هر دو مقدار هشدار را وارد کنید");
+
+    const capacity = Number(device?.inventory_capacity);
+    if (!Number.isFinite(capacity) || capacity <= 0) {
+      toast.error("ابتدا ظرفیت موجودی دستگاه را تعیین و ذخیره کنید");
+      setActivePanel("capacity");
       return;
     }
+
+    const yellowPercent = Number(alertValues.inventory_yellow_threshold);
+    const redPercent = Number(alertValues.inventory_red_threshold);
+    if (
+      alertValues.inventory_yellow_threshold === "" ||
+      alertValues.inventory_red_threshold === "" ||
+      !Number.isFinite(yellowPercent) ||
+      !Number.isFinite(redPercent) ||
+      yellowPercent < 0 ||
+      yellowPercent > 100 ||
+      redPercent < 0 ||
+      redPercent > 100
+    ) {
+      toast.error("درصد هر دو هشدار را بین صفر تا صد وارد کنید");
+      return;
+    }
+
+    const yellowThreshold = Math.round((capacity * yellowPercent) / 100);
+    const redThreshold = Math.round((capacity * redPercent) / 100);
+
     try {
       editDevice(
         {
           deviceId: deviceId as string,
           payload: {
-            inventory_yellow_threshold: +alertValues.inventory_yellow_threshold,
-            inventory_red_threshold: +alertValues.inventory_red_threshold,
+            inventory_yellow_threshold: yellowThreshold,
+            inventory_red_threshold: redThreshold,
           },
         },
         {
@@ -218,11 +261,23 @@ const InventoryTab = () => {
 
                   {hasActionPermission(profile?.role, "canEdit") && (
                     <button
-                      onClick={() =>
-                        setActivePanel(
-                          activePanel === "alert" ? "none" : "alert",
-                        )
-                      }
+                      onClick={() => {
+                        if (activePanel === "alert") {
+                          setActivePanel("none");
+                          return;
+                        }
+
+                        const capacity = Number(device?.inventory_capacity);
+                        if (!Number.isFinite(capacity) || capacity <= 0) {
+                          toast.error(
+                            "ابتدا ظرفیت موجودی دستگاه را تعیین و ذخیره کنید",
+                          );
+                          setActivePanel("capacity");
+                          return;
+                        }
+
+                        setActivePanel("alert");
+                      }}
                       className={`p-2 rounded-lg transition-all ${activePanel === "alert" ? "bg-amber-100 text-amber-600" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
                       title="تنظیمات هشدار موجودی"
                     >
@@ -230,7 +285,7 @@ const InventoryTab = () => {
                     </button>
                   )}
 
-                  {hasActionPermission(profile?.role, "canCreate") && (
+                  {canAddInventory && (
                     <button
                       onClick={() =>
                         setActivePanel(activePanel === "edit" ? "none" : "edit")
@@ -269,10 +324,14 @@ const InventoryTab = () => {
                         filterValues={changeValue}
                         handleChange={handleChange}
                         name="operator"
-                        options={[
-                          { id: "increase", name: "افزودن" },
-                          { id: "decrease", name: "کم کردن" },
-                        ]}
+                        options={
+                          isOperator
+                            ? [{ id: "increase", name: "افزودن" }]
+                            : [
+                                { id: "increase", name: "افزودن" },
+                                { id: "decrease", name: "کم کردن" },
+                              ]
+                        }
                       />
 
                       <input
@@ -307,17 +366,25 @@ const InventoryTab = () => {
               {activePanel === "alert" && (
                 <div className="mt-6 p-4 bg-amber-50 rounded-xl space-y-4 border border-amber-100 animate-in fade-in slide-in-from-top-2">
                   <div className="space-y-3">
+                    <p className="text-xs text-amber-800">
+                      درصدها نسبت به ظرفیت دستگاه محاسبه می‌شوند.
+                    </p>
                     <div className="flex flex-col gap-1">
                       <label className="text-xs text-amber-700 font-medium">
                         حد هشدار زرد
                       </label>
                       <input
                         type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
                         name="inventory_yellow_threshold"
                         value={alertValues.inventory_yellow_threshold}
                         onChange={handleAlertChange}
+                        placeholder="درصد (۰ تا ۱۰۰)"
                         className="p-2 h-11.5 w-full text-sm border border-amber-200 bg-white rounded-lg outline-none focus:ring-2 focus:ring-amber-500"
                       />
+                      <span className="text-xs text-amber-700">٪ از ظرفیت</span>
                     </div>
                     <div className="flex flex-col gap-1">
                       <label className="text-xs text-red-700 font-medium">
@@ -325,11 +392,16 @@ const InventoryTab = () => {
                       </label>
                       <input
                         type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
                         name="inventory_red_threshold"
                         value={alertValues.inventory_red_threshold}
                         onChange={handleAlertChange}
+                        placeholder="درصد (۰ تا ۱۰۰)"
                         className="p-2 h-11.5 w-full text-sm border border-red-200 bg-white rounded-lg outline-none focus:ring-2 focus:ring-red-500"
                       />
+                      <span className="text-xs text-red-700">٪ از ظرفیت</span>
                     </div>
                     <button
                       onClick={handleSaveAlerts}

@@ -22,7 +22,11 @@ const schema = yup
   .object({
     deviceId: yup.string().required("انتخاب شناسه دستگاه الزامی است"),
     name: yup.string().required("نام دستگاه الزامی است"),
-    deviceType: yup.string().max(64, "نوع دستگاه حداکثر ۶۴ کاراکتر باشد").optional(),
+    deviceType: yup
+      .string()
+      .max(64, "نوع دستگاه حداکثر ۶۴ کاراکتر باشد")
+      .defined()
+      .default(""),
   })
   .required();
 
@@ -37,9 +41,12 @@ export default function CreateDeviceModal({
   const { createDevice, isCreatingDevice } = useCreateDevice();
   const {
     pendingDevices,
+    pendingDevicesError,
     isGettingPendingDevices,
     isPendingDevicesError,
   } = useGetPendingDevices(open);
+  const pendingDevicesErrorMessage =
+    pendingDevicesError instanceof Error ? pendingDevicesError.message : "";
   const {
     control,
     register,
@@ -102,6 +109,12 @@ export default function CreateDeviceModal({
             isRequire
             isReadOnly={isGettingPendingDevices || pendingDevices.length === 0}
           />
+          {isPendingDevicesError && (
+            <p className="-mt-3 text-sm text-red-600" role="alert">
+              دریافت فهرست دستگاه‌ها ناموفق بود
+              {pendingDevicesErrorMessage ? `: ${pendingDevicesErrorMessage}` : ""}
+            </p>
+          )}
           <TextField
             errors={errors}
             label="نام دستگاه"

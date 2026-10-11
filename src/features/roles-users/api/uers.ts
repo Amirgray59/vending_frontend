@@ -13,7 +13,7 @@ export async function getUserListApi(){
     return await clientApi.get("/users").then(({data})=>data);
 }
 
-export async function deleteUserApi(id:string){
-    return await clientApi.delete(`/users/${id}`).then(({data})=>data);
+export async function deleteUserApi(id: string): Promise<void> {
+    await clientApi.delete<void>(`/users/${encodeURIComponent(id)}`);
 }
 

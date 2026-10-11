@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import PageTitle from "@/components/shared/PageTitle";
 import DevicesCardsSection from "@/features/devices/components/DevicesCardsSection";
@@ -9,7 +9,7 @@ import DevicesFilterContainer from "@/features/devices/components/DevicesFilterC
 import UseGetLocations from "@/shared/hooks/useGetLocations";
 import DeviceManagementTable from "@/features/devices/components/DevicesManagementTable";
 
-export default function DevicesPage() {
+function DevicesPageContent() {
   const searchParams = useSearchParams();
 
   const initialFilters = {
@@ -70,5 +70,13 @@ export default function DevicesPage() {
 
       <DeviceManagementTable filters={filterAndSearchValues} />
     </section>
+  );
+}
+
+export default function DevicesPage() {
+  return (
+    <Suspense fallback={<div className="p-4" aria-busy="true" />}>
+      <DevicesPageContent />
+    </Suspense>
   );
 }

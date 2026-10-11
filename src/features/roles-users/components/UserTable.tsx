@@ -40,7 +40,7 @@ const UserTable = () => {
 
   const { userList, isgettigUserList } = UseGetUserList();
   
-  const { deleteUser } = useDeleteUser();
+  const { deleteUser, isDeletingUser } = useDeleteUser();
 
   const filteredUsers = useMemo(() => {
     if (!userList?.items) return [];
@@ -73,18 +73,20 @@ const UserTable = () => {
   };
 
   const handleDeleteModal = async () => {
-    if (deleteId) {
-      if (hasActionPermission(profile?.role, "canDelete")) {
-        await deleteUser(deleteId, {
-          onSuccess: () => {
-            setIsDelete(false);
-            setDeleteId(null);
-          },
-        });
-      } else {
-        setIsDelete(false);
-        setDeleteId(null);
-      }
+    if (!deleteId) return;
+
+    if (!hasActionPermission(profile?.role, "canDelete")) {
+      setIsDelete(false);
+      setDeleteId(null);
+      return;
+    }
+
+    try {
+      await deleteUser(deleteId);
+      setIsDelete(false);
+      setDeleteId(null);
+    } catch {
+      // The mutation displays the server error; keep the confirmation open.
     }
   };
 
@@ -204,7 +206,7 @@ const UserTable = () => {
                               {/* ✅ تغییر در این بخش: بررسی نقش و وضعیت کاربر هدف */}
                               {hasMinLevel(profile?.role, PermissionLevel.LEVEL_1) &&
                                 !isSelf && 
-                                (user.role === 'location_manager' || user.role === 'operator') && 
+                                (user.role === 'technical_staff' || user.role === 'operator') &&
                                 user.is_active === true && (
                                   <button>
                                     <Link
@@ -270,6 +272,8 @@ const UserTable = () => {
         onClose={() => setIsDelete(false)}
         open={isDelete}
         title="حذف کاربر"
+        closeOnConfirm={false}
+        isConfirming={isDeletingUser}
       />
     </div>
   );

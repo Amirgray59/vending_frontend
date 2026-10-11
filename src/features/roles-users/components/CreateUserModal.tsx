@@ -11,6 +11,7 @@ import AddNewButton from "@/components/ui/AddNewButton";
 import useGetSingleUser from "@/shared/hooks/useGetSingleUser";
 import { useEffect } from "react";
 import { useUpdateUser } from "@/shared/hooks/useUpdateUser";
+import { ROLE_OPTIONS } from "@/shared/permisseions/roles";
 
 interface CreateUserModalProps {
   onClose: () => void;
@@ -18,13 +19,9 @@ interface CreateUserModalProps {
   editId?: string;
 }
 
-const options = [
-  { id: "1", label: "مدیر کل", value: "super_admin" },
-  { id: "2", label: "پشتیبانی فنی ", value: "technical_support" },
-  { id: "3", label: "مدیر مجموعه", value: "location_manager" },
-  { id: "4", label: "پشتیبانی مرکزی", value: "central_viewer" },
-  { id: "5", label: "حسابدار", value: "accounting" },
-  { id: "6", label: "اپراتور", value: "operator" },
+const activeOptions = [
+  { id: "active", label: "آره", value: "true" },
+  { id: "inactive", label: "نه", value: "false" },
 ];
 
 export const schema = yup
@@ -32,6 +29,7 @@ export const schema = yup
     username: yup.string().required("نام و نام خانوادگی الزامی است"),
     phone: yup.string().required(" شماره موبایل الزامی است"),
     role: yup.string().required(" نقش کاربر الزامی است"),
+    is_active: yup.string().oneOf(["true", "false"]).defined().default("true"),
   })
   .required();
 type FormValues = yup.InferType<typeof schema>;
@@ -55,27 +53,36 @@ export default function CreateUserModal({
   } = useForm<FormValues>({
     resolver: yupResolver(schema),
     mode: "onBlur",
+    defaultValues: { username: "", phone: "", role: "", is_active: "true" },
   });
 
   useEffect(() => {
     if (user) {
       reset({
-        username: user.full_name,
+        username: user.full_name ?? "",
         role: user.role,
         phone: user.phone,
+        is_active: user.is_active ? "true" : "false",
       });
     }
   }, [user, reset]);
   const onSubmit: SubmitHandler<FormValues> = async (data) => {
     if (editId) {
-      updateUser({id:editId,data},{
+      updateUser({
+        id: editId,
+        data: { ...data, is_active: data.is_active === "true" },
+      },{
         onSuccess:()=>{
           onClose();
           reset()
         }
       })
     } else {
-      createUser(data, {
+      createUser({
+        username: data.username,
+        phone: data.phone,
+        role: data.role,
+      }, {
         onSuccess: () => {
           onClose();
         },
@@ -116,10 +123,20 @@ export default function CreateUserModal({
               errors={errors}
               label="نقش کاربر"
               name="role"
-              options={options}
+              options={ROLE_OPTIONS}
               isRequire
             />
           </div>
+          {editId && (
+            <Select
+              control={control}
+              errors={errors}
+              label="فعال بودن"
+              name="is_active"
+              options={activeOptions}
+              isRequire
+            />
+          )}
         </div>
 
         {editId ? (
