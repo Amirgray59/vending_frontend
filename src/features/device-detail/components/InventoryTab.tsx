@@ -100,11 +100,28 @@ const InventoryTab = () => {
       return;
     }
     try {
+      const previousCapacity = Number(device?.inventory_capacity);
+      const keepThresholdPercentage = (
+        threshold: number | null | undefined,
+      ) => {
+        if (
+          threshold == null ||
+          !Number.isFinite(previousCapacity) ||
+          previousCapacity <= 0
+        ) {
+          return threshold;
+        }
+
+        return Math.round((threshold / previousCapacity) * numericCapacity);
+      };
+
       editDevice(
         {
           deviceId: deviceId as string,
           payload: {
             inventory_capacity: numericCapacity,
+            inventory_yellow_threshold: keepThresholdPercentage(yellowThreshold),
+            inventory_red_threshold: keepThresholdPercentage(redThreshold),
           },
         },
         {

@@ -17,6 +17,7 @@ export default function QueryProvider({
             staleTime: 60 * 1000, // 1 دقیقه
             gcTime: 5 * 60 * 1000, // 5 دقیقه (تو نسخه 5 بجای cacheTime از gcTime استفاده میشه)
             retry: 1,
+            refetchOnMount: "always",
             refetchOnWindowFocus: false, // اگه نمیخوای با فوکوس پنجره دوباره درخواست بزنه
           },
         },

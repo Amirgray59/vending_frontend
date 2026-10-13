@@ -8,6 +8,7 @@ import { Trash2 } from "lucide-react";
 import Link from "next/link";
 import StyledPagination from "@/components/ui/Pagination";
 import CreateUserModal from "./CreateUserModal";
+import BaleChatIdButton from "./BaleChatIdButton";
 import ConfirmModal from "@/components/shared/ConfirmModal";
 import UseGetUserList from "../hooks/useGetUserList";
 import { useDeleteUser } from "../hooks/useDeleteUser";
@@ -93,7 +94,11 @@ const UserTable = () => {
   return (
     <div className="bg-white rounded-lg mt-4 border border-gray-100 shadow-sm p-4">
 
-      <div className="flex items-center justify-center sm:justify-start gap-4 mb-4 ">
+      <div className="flex flex-wrap items-center justify-center gap-4 mb-4 sm:justify-start">
+        <BaleChatIdButton
+          currentBaleChatId={profile?.bale_chat_id}
+          isProfileLoading={isgettingprofile}
+        />
         {isgettigUserList ? (
           <Skeleton className=" h-11 " width={110} />
         ) : (
